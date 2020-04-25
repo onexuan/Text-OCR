@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000"
+    android:orientation="vertical">
+
+    <View
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="right|top"
+        android:layout_margin="20dp"
+        android:background="@mipmap/ic_cancel"
+        android:onClick="onBack" />
+
+    <org.opencv.android.JavaCameraView
+        android:id="@+id/camera_view"
+        android:layout_width="244dp"
+        android:layout_height="244dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="160dp"
+        android:padding="40dp" />
+
+    <View
+        android:layout_width="284dp"
+        android:layout_height="284dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="140dp"
+        android:background="@mipmap/face_frame" />
+
+    <TextView
+        android:id="@+id/face_tip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="456dp"
+        android:background="@mipmap/face_tip"
+        android:gravity="center"
+        android:textColor="#FABE00"
+        android:textSize="16sp" />
+
+</FrameLayout>

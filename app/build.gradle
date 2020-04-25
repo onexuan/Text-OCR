@@ -1,0 +1,40 @@
+apply plugin: 'com.android.application'
+
+android {
+    signingConfigs {
+        sign {
+            storePassword '123qwe'
+            keyAlias = 'demo'
+            keyPassword '123qwe'
+            storeFile file('../release.keystore')
+        }
+    }
+    compileSdkVersion 28
+
+    defaultConfig {
+        applicationId "cn.sskbskdrin.ocr.demo"
+        minSdkVersion 23
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+        signingConfig signingConfigs.sign
+
+
+        buildTypes {
+            release {
+                minifyEnabled false
+                proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            }
+            debug {
+                signingConfig signingConfigs.sign
+            }
+        }
+
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    implementation project(path: ':ocrlib')
+}
