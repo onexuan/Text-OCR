@@ -55,12 +55,6 @@ public class MainActivity extends Activity {
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.detect:
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        OCR.test();
-                    }
-                }).start();
                 //                startActivityForResult(new Intent(this, FaceDetectorActivity.class), 1001);
                 break;
             case R.id.recognizer:

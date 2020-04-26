@@ -13,6 +13,8 @@
 #define LOGW(TAG, ...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
 #define LOGE(TAG, ...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
+#define TAG "ocr-jni"
+
 #ifndef BOOL
 #define BOOL char
 #endif

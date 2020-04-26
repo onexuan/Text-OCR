@@ -3,7 +3,6 @@
 #define CRNN_LSTM 0
 
 std::string path = "/storage/emulated/0/ocr/pic/";
-const char *TAG = "ocr--";
 
 void saveImage(cv::Mat mat, std::string name, int id = -1) {
   if (id < 0) {

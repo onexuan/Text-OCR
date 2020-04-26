@@ -9,12 +9,13 @@ import android.util.Log;
 import android.view.View;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.Stack;
+
+import cn.sskbskdrin.ocr.OCR;
 
 /**
  * Created by sskbskdrin on 2020/4/24.
@@ -40,25 +41,51 @@ public class MultView extends View {
     public MultView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         paint.setTextSize(36);
-        list = new ArrayList<>();
+        final int[] array = new int[20000];
+
         Random random = new Random();
-        //        for (int i = 0; i < 1000; i++) {
-        //            list.add(new Point(100 + random.nextInt(800), 100 + random.nextInt(1500)));
-        //        }
-        list.addAll(Arrays.asList(points));
+        for (int i = 0; i < array.length; i++) {
+            array[i] = 100 + random.nextInt(9000);
+        }
+
+        setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        rect = ocr.test(array, array.length);
+                        postInvalidate();
+                    }
+                }).start();
+            }
+        });
+
+        list = new ArrayList<>();
+        for (int i = 0; i < array.length; ) {
+            list.add(new Point(array[i++], array[i++]));
+        }
         calc();
         find();
     }
 
+    double[] rect = null;
+    OCR ocr = null;
+
     @Override
     protected void onDraw(Canvas canvas) {
+        if (ocr == null) {
+            ocr = new OCR(this);
+        }
+        ocr.draw(canvas);
+        paint.setColor(Color.RED);
         for (int i = 0; i < list.size(); i++) {
             drawPoint(canvas, list.get(i), "");
             drawLine(canvas, minY, list.get(i));
         }
-        for (int i = 1; i < mult.size(); i++) {
-            drawLine(canvas, mult.get(i), mult.get(i - 1));
-        }
+        //        for (int i = 1; i < mult.size(); i++) {
+        //            drawLine(canvas, mult.get(i), mult.get(i - 1));
+        //        }
         for (int i = 0; i < mult.size(); i++) {
             drawPoint(canvas, mult.get(i), i + "");
         }
@@ -66,16 +93,28 @@ public class MultView extends View {
         //        drawPoint(canvas, minY, "Y1");
         //        drawPoint(canvas, maxX, "X2");
         //        drawPoint(canvas, maxY, "Y2");
-        if (minRect != null) {
-            minRect.draw(canvas);
-            Log.d(TAG, "onDraw: w=" + minRect.w + " h=" + minRect.h);
-        }
+        //        if (minRect != null) {
+        //            minRect.draw(canvas);
+        //            Log.d(TAG, "onDraw: w=" + minRect.w + " h=" + minRect.h);
+        //        }
 
         //        getNext(cacheList, cache).draw(canvas);
         //        cache++;
         //        cache %= cacheList.size();
 
         //        postInvalidateDelayed(3000);
+        if (rect != null) {
+            paint.setColor(Color.BLUE);
+            int i = 0;
+            for (; i < rect.length - 3; i += 2) {
+                drawLine(canvas, Double.valueOf(rect[i]).floatValue(), Double.valueOf(rect[i + 1])
+                    .floatValue(), Double.valueOf(rect[i + 2]).floatValue(), Double.valueOf(rect[i + 3])
+                    .floatValue(), paint);
+            }
+            drawPoint(canvas, new Point((int) rect[0], (int) rect[1]), "", paint);
+            drawLine(canvas, Double.valueOf(rect[0]).floatValue(), Double.valueOf(rect[1])
+                .floatValue(), Double.valueOf(rect[i]).floatValue(), Double.valueOf(rect[i + 1]).floatValue(), paint);
+        }
     }
 
     private void drawPoint(Canvas canvas, Point point, String v, int color) {
@@ -110,6 +149,10 @@ public class MultView extends View {
 
     private static void drawLine(Canvas canvas, Point a, Point b, Paint paint) {
         canvas.drawLine(a.x, a.y, b.x, b.y, paint);
+    }
+
+    private static void drawLine(Canvas canvas, float x1, float y1, float x2, float y2, Paint paint) {
+        canvas.drawLine(x1, y1, x2, y2, paint);
     }
 
     Point minX = null, minY = null, maxX = null, maxY = null;
@@ -151,9 +194,9 @@ public class MultView extends View {
             }
         });
 
-        for (Point point : list) {
-            Log.d(TAG, "p: " + point.x + "," + point.y);
-        }
+        //        for (Point point : list) {
+        //            Log.d(TAG, "p: " + point.x + "," + point.y);
+        //        }
         mult();
     }
 
@@ -180,7 +223,7 @@ public class MultView extends View {
             }
         }
         for (int i = 0; i < mult.size(); i++) {
-            Log.d(TAG, "mult: " + mult.get(i).x + "," + mult.get(i).y);
+            //            Log.d(TAG, "mult: " + mult.get(i).x + "," + mult.get(i).y);
             mult.get(i).position = i;
         }
     }
@@ -217,7 +260,7 @@ public class MultView extends View {
         Point minRP = null;
         for (Point temp = getNext(mult, p); temp != pp; temp = getNext(mult, temp)) {
             float dis = dis(temp, pp, p);
-            Log.d(TAG, "getRect: " + dis);
+            //            Log.d(TAG, "getRect: " + dis);
             if (dis > max) {
                 max = dis;
                 minRP = temp;

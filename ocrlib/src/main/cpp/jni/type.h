@@ -5,14 +5,25 @@
 #ifndef OCR_TYPE_H
 #define OCR_TYPE_H
 
-#undef  INT_MIN
-#undef  INT_MAX
-
+#ifndef INT_MAX
 #define INT_MAX 0x7fffffff
+#endif
+
+#ifndef INT_MIN
 #define INT_MIN 0x80000000
+#endif
+
+#ifndef MIN
+#  define MIN(a,b)  ((a) > (b) ? (b) : (a))
+#endif
+
+#ifndef MAX
+#  define MAX(a,b)  ((a) < (b) ? (b) : (a))
+#endif
 
 #include <stdlib.h>
 #include <cstdlib>
+#include "log.h"
 
 namespace ocr {
 
@@ -114,11 +125,14 @@ namespace ocr {
           point[1] = p1;
           point[2] = p2;
           point[3] = p3;
+          LOGD("type", "%.lf,%.lf %.lf,%.lf %.lf,%.lf %.lf,%.lf", p0.x, p0.y,
+               p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
 
           angle = p2.y == p1.y ? 0 : -atan((p2.y - p1.y) / (p2.x - p2.x));
 
-          w = static_cast<float>(distance(p0.x, p0.y, p1.x, p1.y));
-          h = static_cast<float>(distance(p0.x, p0.y, p3.x, p3.y));
+          w = distance(p0.x, p0.y, p1.x, p1.y);
+          h = distance(p0.x, p0.y, p3.x, p3.y);
+          LOGD("type", "w=%.lf,h=%.lf angle=%.3lf", w, h, angle);
         }
 
         Point_<T> *point;

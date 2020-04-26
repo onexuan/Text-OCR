@@ -51,6 +51,9 @@ namespace ocr {
  */
     template<typename T>
     static Point_<T> foot(Point_<T> p, Point_<T> p1, Point_<T> p2) {
+      if (p == p1 || p == p2) {
+        return Point_<T>(p.x, p.y);
+      }
       T A = p2.y - p1.y;
       T B = p1.x - p2.x;
       if (A == 0 && B == 0) {
@@ -144,7 +147,7 @@ namespace ocr {
       rect.p1 = p;
       rect.p2 = pp;
 
-      double max = -1;
+      double max = 0;
       for (int i = getNext(size, p); i != pp; i = getNext(size, i)) {
         double dis = distance(vector[i], vector[pp], vector[p]);
         if (dis > max) {
@@ -152,13 +155,14 @@ namespace ocr {
           rect.parallel = i;
         }
       }
-      rect.w = abs(max);
+      rect.w = max;
+//      LOGD(TAG, "max=%lf", max);
 
       Point zu = foot(vector[rect.parallel], vector[p], vector[pp]);
 
-      max = INT_MIN;
-      double min = INT_MAX;
-      for (int i = getNext(size, p); i != pp; i = getNext(size, i)) {
+      double min = max = 0;
+      rect.left = rect.right = p;
+      for (int i = p, j = 0; j < size; i = getNext(size, i), j++) {
         double dis = distance(vector[i], zu, vector[rect.parallel]);
         if (dis > max) {
           max = dis;
@@ -170,6 +174,8 @@ namespace ocr {
         }
       }
       rect.h = max - min;
+//      LOGD(TAG, "get rect p1=%d p2=%d left=%d right=%d para=%d w=%lf h=%lf", rect.p1, rect.p2, rect.left, rect.right,
+//           rect.parallel, rect.w, rect.h);
       return rect;
     }
 
@@ -189,19 +195,20 @@ namespace ocr {
       // 找到最边上的四个点
       for (int i = 0; i < size; i++) {
         Point t = list[i];
-        if (list[left].x >= t.x) {
+        if (list[left].x > t.x || (list[left].x == t.x && list[left].y < t.y)) {
           left = i;
         }
-        if (list[right].x < t.x) {
+        if (list[right].x < t.x || (list[right].x == t.x && list[right].y > t.y)) {
           right = i;
         }
-        if (list[top].y > t.y) {
+        if (list[top].y > t.y || (list[top].y == t.y && list[top].x > t.x)) {
           top = i;
         }
-        if (list[bottom].y <= t.y) {
+        if (list[bottom].y < t.y || (list[bottom].y == t.y && list[bottom].x < t.x)) {
           bottom = i;
         }
       }
+      LOGD(TAG, "t,r,b,l %d,%d,%d,%d", top, right, bottom, left);
       // 根据最边上的四个点算出连接这四个点的八条边的矩形，并找到最小的一个
       Rectangle min;
       min.w = INT_MAX;
@@ -223,10 +230,15 @@ namespace ocr {
       temp = getRect(list, top, FALSE);
       check(min, temp);
 
+//      LOGD(TAG, "min rect p1=%d p2=%d left=%d right=%d para=%d w=%lf h=%lf", min.p1, min.p2, min.left, min.right,
+//           min.parallel, min.w, min.h);
+
       PointD p1 = foot(list[min.left].toPointD(), list[min.p1].toPointD(), list[min.p2].toPointD());
       PointD p2 = foot(list[min.right].toPointD(), list[min.p1].toPointD(), list[min.p2].toPointD());
       PointD p3 = foot(list[min.parallel].toPointD(), p1, list[min.left].toPointD());
       PointD p4 = foot(list[min.parallel].toPointD(), p2, list[min.right].toPointD());
+
+      LOGD(TAG, "%.lf,%.lf %.lf,%.lf %.lf,%.lf %.lf,%.lf", p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y);
 
       RectD rect;
       rect.setPoint(p1, p2, p3, p4);
