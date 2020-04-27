@@ -8,9 +8,10 @@
 #include "type.h"
 #include <vector>
 
-namespace ocr{
+namespace ocr {
 
     ocr::RectD minAreaRect(std::vector<ocr::Point> vector);
 
+    int connectedComponents(int *point, int *out, int w, int h);
 }
 #endif //OCR_RULER_H

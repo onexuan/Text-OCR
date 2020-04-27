@@ -9,6 +9,7 @@
 #include <vector>
 
 namespace ocr {
-    std::vector<Point> convexHull(std::vector<Point> points, bool clockwise);
+    template<typename T>
+    std::vector<Point_<T>> convexHull(std::vector<Point_<T>> points, bool clockwise);
 }
 #endif //TEXT_OCR_CONVEXHULL_H

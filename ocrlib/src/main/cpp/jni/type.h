@@ -14,11 +14,11 @@
 #endif
 
 #ifndef MIN
-#  define MIN(a,b)  ((a) > (b) ? (b) : (a))
+#  define MIN(a, b)  ((a) > (b) ? (b) : (a))
 #endif
 
 #ifndef MAX
-#  define MAX(a,b)  ((a) < (b) ? (b) : (a))
+#  define MAX(a, b)  ((a) < (b) ? (b) : (a))
 #endif
 
 #include <stdlib.h>
@@ -133,6 +133,20 @@ namespace ocr {
           w = distance(p0.x, p0.y, p1.x, p1.y);
           h = distance(p0.x, p0.y, p3.x, p3.y);
           LOGD("type", "w=%.lf,h=%.lf angle=%.3lf", w, h, angle);
+        }
+
+        void setPoint(PointD &center, PointD &size, double angle) {
+          float b = (float) cos(angle) * 0.5f;
+          float a = (float) sin(angle) * 0.5f;
+
+          point[0].x = center.x - a * size.y - b * size.x;
+          point[0].y = center.y + b * size.y - a * size.x;
+          point[1].x = center.x + a * size.y - b * size.x;
+          point[1].y = center.y - b * size.y - a * size.x;
+          point[2].x = 2 * center.x - point[0].x;
+          point[2].y = 2 * center.y - point[0].y;
+          point[3].x = 2 * center.x - point[1].x;
+          point[3].y = 2 * center.y - point[1].y;
         }
 
         Point_<T> *point;

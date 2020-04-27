@@ -1,9 +1,7 @@
 package cn.sskbskdrin.ocr;
 
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
-import android.view.View;
 
 /**
  * Created by sskbskdrin on 2020/4/22.
@@ -18,42 +16,102 @@ public class OCR {
         System.loadLibrary("ocr");
     }
 
-    private Canvas canvas;
-    private View view;
-    private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private long obj;
-    private float[] points = new float[20];
-    int pointSize = 0;
+    private DrawListener drawListener;
 
     public native double[] test(int[] data, int length);
 
-    public OCR(View view) {
-        this.view = view;
+    public OCR() {
         obj = nInit();
+    }
+
+    public void setDrawListener(DrawListener listener) {
+        drawListener = listener;
     }
 
     private native long nInit();
 
     public void drawPoint(float x, float y, int color) {
-        points[pointSize++] = x;
-        points[pointSize++] = y;
-        view.postInvalidate();
+        drawPoints(new float[]{x, y}, color);
+    }
+
+    public void drawPoints(float[] points, int color) {
+        if (drawListener != null) {
+            drawListener.draw(new PointAction(color, points));
+        }
     }
 
     public void drawLine(float x1, float y1, float x2, float y2, int color) {
-        if (canvas != null) {
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(color == 0 ? Color.BLUE : color);
-            paint.setStrokeWidth(2);
-            canvas.drawLine(x1, y1, x2, y2, paint);
+        drawLines(new float[]{x1, y1, x2, y2}, color);
+    }
+
+    public void drawLines(float[] points, int color) {
+        if (drawListener != null) {
+            drawListener.draw(new LineAction(color, points));
         }
     }
 
-    public void draw(Canvas canvas) {
-        paint.setStyle(Paint.Style.FILL);
-        paint.setColor(Color.RED);
-        for (int i = 0; i < pointSize; i += 2) {
-            canvas.drawCircle(points[i], points[i + 1], 10, paint);
+    public interface DrawListener {
+        void draw(Action action);
+    }
+
+    public static abstract class Action {
+        protected float[] params;
+        protected Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        Action(float... p) {
+            params = p;
+        }
+
+        Action(int color, float... p) {
+            paint.setColor(color);
+            params = p;
+        }
+
+        public abstract void draw(Canvas canvas);
+    }
+
+    private static class PointAction extends Action {
+        PointAction(float... p) {
+            super(p);
+        }
+
+        PointAction(int color, float... p) {
+            super(color, p);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            if (params == null || params.length == 0) return;
+
+            paint.setStyle(Paint.Style.FILL);
+            for (int i = 0; i < params.length; i += 2) {
+                canvas.drawCircle(params[i], params[i + 1], 10, paint);
+            }
         }
     }
+
+    private static class LineAction extends Action {
+        LineAction(float... p) {
+            super(p);
+        }
+
+        LineAction(int color, float... p) {
+            super(color, p);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            if (params == null || params.length == 0) return;
+
+            paint.setStrokeWidth(2);
+            int i = 0;
+            for (; i < params.length - 3; i += 2) {
+                canvas.drawLine(params[i], params[i + 1], params[i + 2], params[i + 3], paint);
+            }
+            canvas.drawLine(params[i], params[i + 1], params[0], params[1], paint);
+        }
+    }
+
+
 }
