@@ -2,6 +2,7 @@
 #include "convexHull.h"
 #include <random>
 #include "utils.h"
+#include "ocr_.h"
 
 int main(int argc, char **argv) {
     return 0;
@@ -52,16 +53,22 @@ Java_cn_sskbskdrin_ocr_OCR_test(JNIEnv *env, jobject obj, jintArray _data, jint 
     const char *imagepath = "/storage/emulated/0/ocr/pic/test.jpg";
     LOGD("main", "开始加载图片");
     cv::Mat im_bgr = cv::imread(imagepath);
+    cv::Mat im = im_bgr.clone();
     if (im_bgr.empty()) {
         fprintf(stderr, "cv::imread %s failed\n", imagepath);
     }
     LOGD("main", "加载成功");
     const int long_size = 640;
-//  OCR *ocrengine = new OCR();
 
-//  ocrengine->detect(im_bgr, long_size);
+    OCR *ocrengine = new OCR();
+    ocrengine->detect(im_bgr, long_size);
+    delete ocrengine;
 
-//  delete ocrengine;
+    ncnn::Mat in = ncnn::Mat::from_pixels(im.data, ncnn::Mat::PIXEL_BGR2RGB, im.cols, im.rows);
+    ocr::OCR_ *ocr1 = new ocr::OCR_();
+    ocr1->detect(in);
+
+    delete ocr1;
 
     std::vector<ocr::Point> ocr;
     std::vector<cv::Point> cv;
@@ -78,7 +85,7 @@ Java_cn_sskbskdrin_ocr_OCR_test(JNIEnv *env, jobject obj, jintArray _data, jint 
     double start = ncnn::get_current_time();
     cv::RotatedRect rect = cv::minAreaRect(cv);
     LOGD("main", "end cv radius=%.3lf time=%.3lf w=%.lf h=%.lf", rect.angle, ncnn::get_current_time() - start, rect.size
-        .width, rect.size.height);
+            .width, rect.size.height);
 
     start = ncnn::get_current_time();
     LOGD("main", "start ocr");
@@ -113,7 +120,7 @@ Java_cn_sskbskdrin_ocr_OCR_test(JNIEnv *env, jobject obj, jintArray _data, jint 
 
     jdoubleArray _result = toDoubleArray<double>(env, p, 8);
     int *a = new int[1000000];
-    ocr::connectedComponents(a, a, 1000, 1000);
+    //ocr::connectedComponents<int>(a, a, 1000, 1000);
     LOGD("main", "end");
 
     env->ReleaseIntArrayElements(_data, data, 0);

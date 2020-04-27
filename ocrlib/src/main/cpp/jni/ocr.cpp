@@ -364,6 +364,8 @@ void OCR::detect(cv::Mat im_bgr, int long_size) {
     float h_scale = im_bgr.rows * 1.0 / im.rows;
     float w_scale = im_bgr.cols * 1.0 / im.cols;
 
+    LOGI(TAG, "im w=%d,h=%d", im.cols, im.rows);
+
     ncnn::Mat in = ncnn::Mat::from_pixels(im.data, ncnn::Mat::PIXEL_BGR2RGB, im.cols, im.rows);
     in.substract_mean_normalize(mean_vals_pse_angle, norm_vals_pse_angle);
     LOGI(TAG, "in w=%d,h=%d,c=%d", in.w, in.h, in.c);
@@ -375,9 +377,9 @@ void OCR::detect(cv::Mat im_bgr, int long_size) {
     ex.set_num_threads(num_thread);
     ex.input("input", in);
     ncnn::Mat preds;
-    long time1 = cv::getTickCount();
+    long time1 = ncnn::get_current_time();
     ex.extract("out", preds);
-    LOGI(TAG, "psenet前向时间:%lf", (cv::getTickCount() - time1) / cv::getTickFrequency());
+    LOGI(TAG, "psenet前向时间:%lf", ncnn::get_current_time() - time1);
     LOGI(TAG, "网络输出尺寸w=%d,h=%d,c=%d", preds.w, preds.h, preds.c);
 
 //  cv::Mat temp(preds.h, preds.w, CV_8UC3, preds.data);

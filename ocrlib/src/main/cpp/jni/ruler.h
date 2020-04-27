@@ -12,6 +12,6 @@ namespace ocr {
 
     ocr::RectD minAreaRect(std::vector<ocr::Point> vector);
 
-    int connectedComponents(int *point, int *out, int w, int h);
+    int connectedComponents(float *point, float *out, int w, int h);
 }
 #endif //OCR_RULER_H

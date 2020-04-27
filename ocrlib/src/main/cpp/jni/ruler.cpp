@@ -245,7 +245,8 @@ namespace ocr {
         return rect;
     }
 
-    void find(int *point, int *out, int i, int j, int w, int h, int value) {
+    template<typename T>
+    void find(T *point, T *out, int i, int j, int w, int h, int value) {
         int index = i * w + j;
         if (i < 0 || i > h || j < 0 || j > w || out[index] >= 0) return;
 
@@ -257,7 +258,7 @@ namespace ocr {
         find(point, out, i, j - 1, w, h, value);
     }
 
-    int connectedComponents(int *point, int *out, int w, int h) {
+    int connectedComponents(float *point, float *out, int w, int h) {
         int value = 0;
         memset(out, -1, static_cast<size_t>(w * h));
         for (int i = 0; i < h; ++i) {
@@ -265,7 +266,7 @@ namespace ocr {
                 int index = i * w + j;
                 if (out[index] >= 0) continue;
                 out[index] = 0;
-                if (point[index] == 1) {
+                if (point[index]) {
                     out[index] = ++value;
                     find(point, out, i, j, w, h, value);
                 }
