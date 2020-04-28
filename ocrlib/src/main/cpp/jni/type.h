@@ -141,11 +141,10 @@ namespace ocr {
             rb.x = 2 * center.x - lt.x;
             rb.y = 2 * center.y - lt.y;
             this->angle = angle;
-            LOGD(TAG, "rect=%.f,%.f %.f,%.f %.f,%.f %.f,%.f", lb.x, lb.y, lt.x, lt.y,
-                 rt.x, rt.y, rb.x, rb.y);
-            LOGD(TAG, "center %.lf,%.lf", center.x, center.y);
-            LOGD(TAG, "get point w=%.lf h=%.lf", getWidth(), getHeight());
-            LOGD(TAG, "set point w=%.lf h=%.lf", size.x, size.y);
+            //LOGD(TAG, "rect=%.f,%.f %.f,%.f %.f,%.f %.f,%.f", lb.x, lb.y, lt.x, lt.y,
+            //     rt.x, rt.y, rb.x, rb.y);
+            //LOGD(TAG, "get point w=%.lf h=%.lf", getWidth(), getHeight());
+            //LOGD(TAG, "set point w=%.lf h=%.lf", size.x, size.y);
         }
 
         Point_<T> operator[](const int index) {

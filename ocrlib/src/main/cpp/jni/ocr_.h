@@ -20,7 +20,7 @@ namespace ocr {
 
         ~OCR_();
 
-        void detect(JNIEnv *env, jobject thiz, ncnn::Mat img);
+        void detect(ncnn::Mat img);
 
     private:
 

@@ -48,7 +48,7 @@ public class MultView extends View {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        rect = ocr.test(array, array.length);
+                        ocr.test(array, array.length);
                         postInvalidate();
                     }
                 }).start();
@@ -72,7 +72,6 @@ public class MultView extends View {
 
     List<OCR.Action> actions = new ArrayList<>();
 
-    double[] rect = null;
     OCR ocr = null;
 
     Bitmap bitmap = null;
@@ -84,18 +83,6 @@ public class MultView extends View {
             bitmap = BitmapFactory.decodeFile("/storage/emulated/0/ocr/pic/test.jpg");
         }
         canvas.drawBitmap(bitmap, 0, 0, null);
-        if (rect != null) {
-            paint.setColor(Color.BLUE);
-            int i = 0;
-            for (; i < rect.length - 3; i += 2) {
-                drawLine(canvas, Double.valueOf(rect[i]).floatValue(), Double.valueOf(rect[i + 1])
-                    .floatValue(), Double.valueOf(rect[i + 2]).floatValue(), Double.valueOf(rect[i + 3])
-                    .floatValue(), paint);
-            }
-            drawPoint(canvas, (float) rect[0], (float) rect[1], "", paint);
-            drawLine(canvas, Double.valueOf(rect[0]).floatValue(), Double.valueOf(rect[1])
-                .floatValue(), Double.valueOf(rect[i]).floatValue(), Double.valueOf(rect[i + 1]).floatValue(), paint);
-        }
 
         for (OCR.Action action : actions) {
             action.draw(canvas);

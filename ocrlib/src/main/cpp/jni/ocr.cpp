@@ -334,26 +334,6 @@ cv::Mat matRotateClockWise90(cv::Mat src) {
     return src;
 }
 
-void OCR::detect(ncnn::Mat img) {
-    LOGD(TAG, "detect");
-    double start = ncnn::get_current_time();
-    cv::Point size = getScaleSize(img);
-    ncnn::Mat in = img.reshape(size.x, size.y);
-    in.substract_mean_normalize(mean_vals_pse_angle, norm_vals_pse_angle);
-
-    ncnn::Extractor ex = psenet.create_extractor();
-    ex.set_num_threads(num_thread);
-    ex.input("input", in);
-    ncnn::Mat pre;
-    ex.extract("out", pre);
-    LOGI(TAG, "psenet前向时间:%lf", ncnn::get_current_time() - start);
-    LOGI(TAG, "网络输出尺寸w=%d,h=%d", pre.w, pre.h);
-    double st = ncnn::get_current_time();
-
-    std::map<int, std::vector<cv::Point>> contoursMap;
-    pse_decode(pre, contoursMap, 0.7311, 10, 1);
-}
-
 void OCR::detect(cv::Mat im_bgr, int long_size) {
     LOGD(TAG, "detect");
 

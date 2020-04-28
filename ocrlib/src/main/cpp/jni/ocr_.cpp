@@ -17,9 +17,6 @@ namespace ocr {
 
     std::string path = "/storage/emulated/0/ocr/pic/";
 
-    JNIEnv *senv;
-    jobject sthiz;
-
     OCR_::OCR_() {
 
         std::string path = "/storage/emulated/0/ocr/";
@@ -212,46 +209,6 @@ namespace ocr {
         }
     }
 
-    void draw(float *data, int size, unsigned int color) {
-        jclass clazz = senv->FindClass("cn/sskbskdrin/ocr/OCR");
-        jmethodID drawPoint_ = senv->GetMethodID(clazz, "drawPoint", "(FFI)V");
-        jmethodID drawPoints_ = senv->GetMethodID(clazz, "drawPoints", "([FI)V");
-//        jmethodID drawLine_ = env->GetMethodID(clazz, "drawLine", "(FFFFI)V");
-//        jmethodID drawLines_ = env->GetMethodID(clazz, "drawLines", "([FI)V");
-
-//        int len = static_cast<int>(queue.size());
-
-        jfloatArray result = senv->NewFloatArray(size);
-        senv->SetFloatArrayRegion(result, 0, size, data);
-        senv->CallVoidMethod(sthiz, drawPoints_, result, (jint) color);
-    }
-
-    void draw(float *data, int size) {
-        draw(data, size, 0x6f0fff00);
-    }
-
-    void draw(JNIEnv *env, jobject obj, std::queue<Point2i> queue) {
-
-        jclass clazz = env->FindClass("cn/sskbskdrin/ocr/OCR");
-        jmethodID drawPoint_ = env->GetMethodID(clazz, "drawPoint", "(FFI)V");
-        jmethodID drawPoints_ = env->GetMethodID(clazz, "drawPoints", "([FI)V");
-        jmethodID drawLine_ = env->GetMethodID(clazz, "drawLine", "(FFFFI)V");
-        jmethodID drawLines_ = env->GetMethodID(clazz, "drawLines", "([FI)V");
-
-        int len = static_cast<int>(queue.size());
-
-        jfloatArray result = env->NewFloatArray(len * 2);
-        for (int i = 0; i < len * 2; i += 2) {
-            float a = queue.front().x;
-            float b = queue.front().y;
-            queue.pop();
-            env->SetFloatArrayRegion(result, i, 1, &a);
-            env->SetFloatArrayRegion(result, i + 1, 1, &b);
-        }
-
-        env->CallVoidMethod(obj, drawPoints_, result, (jint) 0xff0000f0);
-    }
-
     /**
      *
      * @param features
@@ -341,7 +298,6 @@ namespace ocr {
         for (int i = 1; i <= count; ++i) {
             LOGI(TAG, "before key=%d value=%d", i, (int) map[i].size());
             filter(map[i], mask);
-            draw(senv, sthiz, map[i]);
             LOGI(TAG, "after key=%d value=%d", i, (int) map[i].size());
             std::queue<Point2i> *queue = &map[i];
             while (!queue->empty()) {
@@ -362,6 +318,40 @@ namespace ocr {
     }
 
     void getRotRectImg(ncnn::Mat &src, ncnn::Mat &dest, RectD &rect) {
+        double cosV = cos(-rect.angle);
+        double sinV = sin(-rect.angle);
+        double x = rect.lt.x;
+        double y = rect.lt.y;
+
+        float *arr = new float[src.w * src.h];
+        int num = 0;
+        int h = (int) rect.getWidth();
+        int w = (int) rect.getHeight();
+        w = MAX(w, h);
+
+        for (int i = 0; i < 1; ++i) {
+            for (int j = 0; j < w; ++j) {
+                arr[num++] = (int) (x + j * cosV);
+                arr[num++] = (int) (y + j * sinV);
+            }
+        }
+        //for (int i = 0; i < 1; ++i) {
+        //    for (int j = 0; j < w; ++j) {
+        //        arr[num++] = (float) (rect.rt.x + j * cosV);
+        //        arr[num++] = (float) (rect.rt.y + j * sinV);
+        //    }
+        //}
+        drawPoint(arr, num);
+        float *line = new float[8];
+        line[0] = (float) rect[0].x;
+        line[1] = (float) rect[0].y;
+        line[2] = (float) rect[1].x;
+        line[3] = (float) rect[1].y;
+        line[4] = (float) rect[2].x;
+        line[5] = (float) rect[2].y;
+        line[6] = (float) rect[3].x;
+        line[7] = (float) rect[3].y;
+        drawLine(line, 8);
     }
 
     cv::Mat draw(cv::Mat &src, RectD &rect) {
@@ -386,9 +376,30 @@ namespace ocr {
         return dst;
     }
 
-    void OCR_::detect(JNIEnv *env, jobject thiz, ncnn::Mat img) {
-        senv = env;
-        sthiz = thiz;
+    cv::Mat matRotateClockWise180(cv::Mat src)//顺时针180
+    {
+        LOGD(TAG, "matRotateClockWise180");
+
+//0: 沿X轴翻转； >0: 沿Y轴翻转； <0: 沿X轴和Y轴翻转
+        flip(src, src,
+             0);// 翻转模式，flipCode == 0垂直翻转（沿X轴翻转），flipCode>0水平翻转（沿Y轴翻转），flipCode<0水平垂直翻转（先沿X轴翻转，再沿Y轴翻转，等价于旋转180°）
+        flip(src, src, 1);
+        return src;
+//transpose(src, src);// 矩阵转置
+    }
+
+    cv::Mat matRotateClockWise90(cv::Mat src) {
+        LOGD(TAG, "matRotateClockWise90");
+
+// 矩阵转置
+        transpose(src, src);
+//0: 沿X轴翻转； >0: 沿Y轴翻转； <0: 沿X轴和Y轴翻转
+        flip(src, src,
+             1);// 翻转模式，flipCode == 0垂直翻转（沿X轴翻转），flipCode>0水平翻转（沿Y轴翻转），flipCode<0水平垂直翻转（先沿X轴翻转，再沿Y轴翻转，等价于旋转180°）
+        return src;
+    }
+
+    void OCR_::detect(ncnn::Mat img) {
         LOGD(TAG, "detect");
         double start = ncnn::get_current_time();
         Point size = getScaleSize(img);
@@ -415,7 +426,7 @@ namespace ocr {
             RectD rectD = ocr::minAreaRect(contoursMap[i]);
             LOGD(TAG, "rect=%.f,%.f %.f,%.f %.f,%.f %.f,%.f", rectD[0].x, rectD[0].y, rectD[1].x, rectD[1].y,
                  rectD[2].x, rectD[2].y, rectD[3].x, rectD[3].y);
-            LOGD(TAG, "rect w=%.lf h=%.lf", rectD.getWidth(), rectD.getHeight());
+            LOGD(TAG, "rect w=%.lf h=%.lf angle=%.2lf", rectD.getWidth(), rectD.getHeight(), rectD.angle * 180 / CV_PI);
 
             int w = (int) rectD.getWidth();
             int h = (int) rectD.getHeight();
@@ -439,7 +450,7 @@ namespace ocr {
             int part_im_w = part_im.cols;
             int part_im_h = part_im.rows;
             // std::cout << "网络输出尺寸 (" << part_im_w<< ", " << part_im_h <<  ")" << std::endl;
-//            if (part_im_h > 1.5 * part_im_w) part_im = matRotateClockWise90(part_im);
+            if (part_im_h > 1.5 * part_im_w) part_im = matRotateClockWise90(part_im);
 
             cv::Mat angle_input = part_im.clone();
 
@@ -449,7 +460,10 @@ namespace ocr {
                                                                        part_im.rows,
                                                                        shufflenetv2_target_w,
                                                                        shufflenetv2_target_h);
-
+            if (i == 1) {
+                ncnn::Mat out = shufflenet_input.clone();
+                getRotRectImg(shufflenet_input, out, rectD);
+            }
             shufflenet_input.substract_mean_normalize(mean_vals_pse_angle, norm_vals_pse_angle);
             ncnn::Extractor shufflenetv2_ex = angle_net.create_extractor();
             shufflenetv2_ex.set_num_threads(num_thread);
@@ -471,7 +485,7 @@ namespace ocr {
                 }
             }
 
-//            if (angle_index == 0 || angle_index == 2) part_im = matRotateClockWise180(part_im);
+            if (angle_index == 0 || angle_index == 2) part_im = matRotateClockWise180(part_im);
 
             // 开始文本识别
             int crnn_w_target;

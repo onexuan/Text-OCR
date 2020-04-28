@@ -8,6 +8,9 @@
 #include <jni.h>
 #include "log.h"
 
+extern JNIEnv *javaEnv;
+extern jobject javaObject;
+
 template<typename I>
 jfloatArray toFloatArray(JNIEnv *env, I *data, int len) {
     jfloatArray result = env->NewFloatArray(len);
@@ -36,6 +39,61 @@ jintArray toIntArray(JNIEnv *env, I *data, int len) {
         env->SetIntArrayRegion(result, i, 1, &a);
     }
     return result;
+}
+
+static JNIEnv *getEnv() {
+    JavaVM *g_javaVM;
+    JNIEnv env;
+    env.GetJavaVM(&g_javaVM);
+    int status;
+    JNIEnv *_jniEnv = NULL;
+    status = g_javaVM->GetEnv((void **) &_jniEnv, JNI_VERSION_1_6);
+
+    if (status < 0) {
+        status = g_javaVM->AttachCurrentThread(&_jniEnv, NULL);
+        if (status < 0) {
+            _jniEnv = NULL;
+        }
+    }
+    return _jniEnv;
+}
+
+static void drawPoint(float *data, int size, unsigned int color = 0xffff0000) {
+    //if (javaEnv != NULL) {
+    //JNIEnv *javaEnv = getEnv();
+
+    LOGI(TAG, "java env=%x obj=%x", javaEnv, javaObject);
+
+    jclass clazz = javaEnv->FindClass("cn/sskbskdrin/ocr/OCR");
+    jmethodID drawPoints_ = javaEnv->GetMethodID(clazz, "drawPoints", "([FI)V");
+
+    jfloatArray result = javaEnv->NewFloatArray(size);
+    javaEnv->SetFloatArrayRegion(result, 0, size, data);
+    javaEnv->CallVoidMethod(javaObject, drawPoints_, result, (jint) color);
+    //} else {
+    //    LOGW(TAG, "javaEnv is null");
+    //}
+}
+
+static void drawPoint(std::vector<float> vector) {
+    drawPoint(vector.data(), static_cast<int>(vector.size()));
+}
+
+static void drawLine(float *data, int size, unsigned int color = 0xff0000ff) {
+    if (javaEnv != NULL) {
+        jclass clazz = javaEnv->FindClass("cn/sskbskdrin/ocr/OCR");
+        jmethodID drawLines_ = javaEnv->GetMethodID(clazz, "drawLines", "([FI)V");
+
+        jfloatArray result = javaEnv->NewFloatArray(size);
+        javaEnv->SetFloatArrayRegion(result, 0, size, data);
+        javaEnv->CallVoidMethod(javaObject, drawLines_, result, (jint) color);
+    } else {
+        LOGW(TAG, "javaEnv is null");
+    }
+}
+
+static void drawLine(std::vector<float> vector) {
+    drawPoint(vector.data(), static_cast<int>(vector.size()));
 }
 
 #endif //TEXT_OCR_UTILS_H

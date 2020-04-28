@@ -51,8 +51,6 @@ public:
 
     void detect(cv::Mat im_bgr, int long_size);
 
-    void detect(ncnn::Mat img);
-
 private:
 
 

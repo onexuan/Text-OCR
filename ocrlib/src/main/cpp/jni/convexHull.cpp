@@ -200,7 +200,6 @@ namespace ocr {
                 }
             }
         }
-        LOGD("convexHull", "_hull size=%d", nout);
         for (i = 0; i < nout; i++) {
             out.emplace_back(data0[hullbuf[i]]);
         }
@@ -314,10 +313,10 @@ namespace ocr {
             /* compute cosine of angle between calipers side and polygon edge */
             /* dp - dot product */
             float dp[4] = {
-                +base_a * vect[seq[0]].x + base_b * vect[seq[0]].y,
-                -base_b * vect[seq[1]].x + base_a * vect[seq[1]].y,
-                -base_a * vect[seq[2]].x - base_b * vect[seq[2]].y,
-                +base_b * vect[seq[3]].x - base_a * vect[seq[3]].y,
+                    +base_a * vect[seq[0]].x + base_b * vect[seq[0]].y,
+                    -base_b * vect[seq[1]].x + base_a * vect[seq[1]].y,
+                    -base_a * vect[seq[2]].x - base_b * vect[seq[2]].y,
+                    +base_b * vect[seq[3]].x - base_a * vect[seq[3]].y,
             };
 
             float maxcos = dp[0] * inv_vect_length[seq[0]];
@@ -436,7 +435,6 @@ namespace ocr {
 
         std::vector<Point> outPoint;
         convexHull(_points, outPoint, true);
-        LOGD(TAG, "minAreaRect convexHull end %ld", outPoint.size());
 
         int n = (int) (outPoint.size());
         const Point *hpoints = outPoint.data();
@@ -464,7 +462,6 @@ namespace ocr {
         }
         RectD *box = new RectD();
         box->setPoint(center, size, angle);
-        LOGD(TAG, "box.point=%ld", &box->lt);
         return *box;
     }
 
