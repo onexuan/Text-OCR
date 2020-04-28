@@ -86,7 +86,7 @@ public class OCR {
 
             paint.setStyle(Paint.Style.FILL);
             for (int i = 0; i < params.length; i += 2) {
-                canvas.drawCircle(params[i], params[i + 1], 10, paint);
+                canvas.drawCircle(params[i], params[i + 1], 1, paint);
             }
         }
     }

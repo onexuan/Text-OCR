@@ -1,6 +1,8 @@
 package cn.sskbskdrin.ocr.demo;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -73,10 +75,15 @@ public class MultView extends View {
     double[] rect = null;
     OCR ocr = null;
 
+    Bitmap bitmap = null;
+
     @Override
     protected void onDraw(Canvas canvas) {
         paint.setColor(Color.RED);
-
+        if (bitmap == null) {
+            bitmap = BitmapFactory.decodeFile("/storage/emulated/0/ocr/pic/test.jpg");
+        }
+        canvas.drawBitmap(bitmap, 0, 0, null);
         if (rect != null) {
             paint.setColor(Color.BLUE);
             int i = 0;

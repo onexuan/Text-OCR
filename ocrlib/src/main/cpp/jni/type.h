@@ -49,6 +49,11 @@ namespace ocr {
     public:
         typedef T value_type;
 
+        Point_() {
+            this->x = 0;
+            this->y = 0;
+        }
+
         Point_(T x, T y) {
             this->x = x;
             this->y = y;
@@ -86,76 +91,93 @@ namespace ocr {
     class _Rect {
     public:
         _Rect() {
-            point = (Point_<T> *) (malloc(4 * sizeof(Point_<T>)));
         }
 
         ~_Rect() {
-            free(point);
         }
 
-        double angle = 0;
-
         void setPoint(Point_<T> p0, Point_<T> p1, Point_<T> p2, Point_<T> p3) {
-            point[0] = p0;
-            point[1] = p1;
-            point[2] = p2;
-            point[3] = p3;
-            int left = 0, right = 0, top = 0, bottom = 0;
-            for (int i = 0; i < 4; ++i) {
-                PointD t = point[i];
-                if (point[left].x > t.x || (point[left].x == t.x && point[left].y < t.y)) {
-                    left = i;
-                }
-                if (point[right].x < t.x || (point[right].x == t.x && point[right].y > t.y)) {
-                    right = i;
-                }
-                if (point[top].y > t.y || (point[top].y == t.y && point[top].x > t.x)) {
-                    top = i;
-                }
-                if (point[bottom].y < t.y || (point[bottom].y == t.y && point[bottom].x < t.x)) {
-                    bottom = i;
-                }
-            }
+//            point[0] = p0;
+//            point[1] = p1;
+//            point[2] = p2;
+//            point[3] = p3;
+//            int left = 0, right = 0, top = 0, bottom = 0;
+//            for (int i = 0; i < 4; ++i) {
+//                PointD t = point[i];
+//                if (point[left].x > t.x || (point[left].x == t.x && point[left].y < t.y)) {
+//                    left = i;
+//                }
+//                if (point[right].x < t.x || (point[right].x == t.x && point[right].y > t.y)) {
+//                    right = i;
+//                }
+//                if (point[top].y > t.y || (point[top].y == t.y && point[top].x > t.x)) {
+//                    top = i;
+//                }
+//                if (point[bottom].y < t.y || (point[bottom].y == t.y && point[bottom].x < t.x)) {
+//                    bottom = i;
+//                }
+//            }
 
-            p0 = point[top];
-            p1 = point[right];
-            p2 = point[bottom];
-            p3 = point[left];
-            point[0] = p0;
-            point[1] = p1;
-            point[2] = p2;
-            point[3] = p3;
             LOGD("type", "%.lf,%.lf %.lf,%.lf %.lf,%.lf %.lf,%.lf", p0.x, p0.y,
                  p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
 
             angle = p2.y == p1.y ? 0 : -atan((p2.y - p1.y) / (p2.x - p2.x));
 
-            w = distance(p0.x, p0.y, p1.x, p1.y);
-            h = distance(p0.x, p0.y, p3.x, p3.y);
-            LOGD("type", "w=%.lf,h=%.lf angle=%.3lf", w, h, angle);
+//            w = distance(p0.x, p0.y, p1.x, p1.y);
+//            h = distance(p0.x, p0.y, p3.x, p3.y);
+//            LOGD("type", "w=%.lf,h=%.lf angle=%.3lf", w, h, angle);
         }
 
         void setPoint(PointD &center, PointD &size, double angle) {
             float b = (float) cos(angle) * 0.5f;
             float a = (float) sin(angle) * 0.5f;
 
-            point[0].x = center.x - a * size.y - b * size.x;
-            point[0].y = center.y + b * size.y - a * size.x;
-            point[1].x = center.x + a * size.y - b * size.x;
-            point[1].y = center.y - b * size.y - a * size.x;
-            point[2].x = 2 * center.x - point[0].x;
-            point[2].y = 2 * center.y - point[0].y;
-            point[3].x = 2 * center.x - point[1].x;
-            point[3].y = 2 * center.y - point[1].y;
+            lb.x = center.x - a * size.y - b * size.x;
+            lb.y = center.y + b * size.y - a * size.x;
+            lt.x = center.x + a * size.y - b * size.x;
+            lt.y = center.y - b * size.y - a * size.x;
+            rt.x = 2 * center.x - lb.x;
+            rt.y = 2 * center.y - lb.y;
+            rb.x = 2 * center.x - lt.x;
+            rb.y = 2 * center.y - lt.y;
+            this->angle = angle;
+            LOGD(TAG, "rect=%.f,%.f %.f,%.f %.f,%.f %.f,%.f", lb.x, lb.y, lt.x, lt.y,
+                 rt.x, rt.y, rb.x, rb.y);
+            LOGD(TAG, "center %.lf,%.lf", center.x, center.y);
+            LOGD(TAG, "get point w=%.lf h=%.lf", getWidth(), getHeight());
+            LOGD(TAG, "set point w=%.lf h=%.lf", size.x, size.y);
         }
 
-        Point_<T> *point;
+        Point_<T> operator[](const int index) {
+            int v = (index % 4 + 4) % 4;
+            switch (v) {
+                case 0:
+                    return lb;
+                case 1:
+                    return lt;
+                case 2:
+                    return rt;
+                default:
+                    return rb;
+            }
+        }
 
-        T w;
-        T h;
+        Point_<T> lb;
+        Point_<T> lt;
+        Point_<T> rt;
+        Point_<T> rb;
+        double angle = 0;
 
-        T getArea() {
-            return w * h;
+        T getWidth() {
+            return distance(lt.x, lt.y, rt.x, rt.y);
+        }
+
+        T getHeight() {
+            return distance(lt.x, lt.y, lb.x, lb.y);
+        }
+
+        Point_<T> getCenter() {
+            return Point_<T>((lt.x + rb.x) * 0.5, (lt.y + rb.y) * 0.5);
         }
 
     private:

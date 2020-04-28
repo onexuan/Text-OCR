@@ -10,6 +10,6 @@
 
 namespace ocr {
     template<typename T>
-    std::vector<Point_<T>> convexHull(std::vector<Point_<T>> points, bool clockwise);
+    void convexHull(std::vector<Point_<T>> &points, std::vector<Point_<T>> &out, bool clockwise);
 }
 #endif //TEXT_OCR_CONVEXHULL_H

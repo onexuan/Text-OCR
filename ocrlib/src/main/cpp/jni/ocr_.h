@@ -9,6 +9,7 @@
 #include "ruler.h"
 #include "net.h"
 #include "benchmark.h"
+#include <jni.h>
 
 namespace ocr {
 
@@ -17,14 +18,16 @@ namespace ocr {
     public:
         OCR_();
 
-        void detect(ncnn::Mat img);
+        ~OCR_();
+
+        void detect(JNIEnv *env, jobject thiz, ncnn::Mat img);
 
     private:
 
         ncnn::Net psenet, crnn_net, crnn_vertical_net, angle_net;
         ncnn::Mat img;
         int num_thread = 4;
-        int shufflenetv2_target_w = 196;
+        int shufflenetv2_target_w = 256;
         int shufflenetv2_target_h = 48;
         int crnn_h = 32;
 

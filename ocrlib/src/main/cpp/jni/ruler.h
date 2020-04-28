@@ -10,7 +10,7 @@
 
 namespace ocr {
 
-    ocr::RectD minAreaRect(std::vector<ocr::Point> vector);
+    ocr::RectD minAreaRect(std::vector<ocr::Point> &vector);
 
     int connectedComponents(float *point, float *out, int w, int h);
 }

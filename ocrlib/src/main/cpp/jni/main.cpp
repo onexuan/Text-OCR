@@ -60,13 +60,13 @@ Java_cn_sskbskdrin_ocr_OCR_test(JNIEnv *env, jobject obj, jintArray _data, jint 
     LOGD("main", "加载成功");
     const int long_size = 640;
 
-    OCR *ocrengine = new OCR();
-    ocrengine->detect(im_bgr, long_size);
-    delete ocrengine;
+//    OCR *ocrengine = new OCR();
+//    ocrengine->detect(im_bgr, long_size);
+//    delete ocrengine;
 
     ncnn::Mat in = ncnn::Mat::from_pixels(im.data, ncnn::Mat::PIXEL_BGR2RGB, im.cols, im.rows);
     ocr::OCR_ *ocr1 = new ocr::OCR_();
-    ocr1->detect(in);
+    ocr1->detect(env, obj, in);
 
     delete ocr1;
 
@@ -85,13 +85,13 @@ Java_cn_sskbskdrin_ocr_OCR_test(JNIEnv *env, jobject obj, jintArray _data, jint 
     double start = ncnn::get_current_time();
     cv::RotatedRect rect = cv::minAreaRect(cv);
     LOGD("main", "end cv radius=%.3lf time=%.3lf w=%.lf h=%.lf", rect.angle, ncnn::get_current_time() - start, rect.size
-            .width, rect.size.height);
+        .width, rect.size.height);
 
     start = ncnn::get_current_time();
     LOGD("main", "start ocr");
     ocr::RectD rectD = ocr::minAreaRect(ocr);
     LOGD("main", "end ocr radius=%.3lf time=%.3lf w=%.lf h=%.lf", rectD.angle, ncnn::get_current_time() - start,
-         rectD.w, rectD.h);
+         rectD.getWidth(), rectD.getHeight());
 
     std::vector<cv::Point> buf;
     start = ncnn::get_current_time();
@@ -99,7 +99,8 @@ Java_cn_sskbskdrin_ocr_OCR_test(JNIEnv *env, jobject obj, jintArray _data, jint 
     LOGD("main", "cv convex hull %.3lf size=%ld", ncnn::get_current_time() - start, buf.size());
 
     start = ncnn::get_current_time();
-    ocr = ocr::convexHull(ocr, true);
+    std::vector<ocr::Point> ocrBuf;
+    ocr::convexHull(ocr, ocrBuf, true);
     int size = static_cast<int>(ocr.size());
     LOGD("main", "ocr convex hull %.3lf size=%d", ncnn::get_current_time() - start, size);
 
@@ -112,13 +113,12 @@ Java_cn_sskbskdrin_ocr_OCR_test(JNIEnv *env, jobject obj, jintArray _data, jint 
     jfloatArray points = toFloatArray<int>(env, data, length);
     env->CallVoidMethod(obj, drawPoints_, points, (jint) 0xffff0000);
 
-    double *p = reinterpret_cast<double *>(rectD.point);
-    jfloatArray array = toFloatArray<double>(env, p, 8);
+    jfloatArray array = toFloatArray<double>(env, (double *) &rectD, 8);
     env->CallVoidMethod(obj, drawPoints_, array, (jint) 0x8000ff00);
 
     env->CallVoidMethod(obj, drawLines_, array, (jint) 0xff0000ff);
 
-    jdoubleArray _result = toDoubleArray<double>(env, p, 8);
+    jdoubleArray _result = toDoubleArray<double>(env, (double *) &rectD, 8);
     int *a = new int[1000000];
     //ocr::connectedComponents<int>(a, a, 1000, 1000);
     LOGD("main", "end");
