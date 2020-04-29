@@ -61,11 +61,11 @@ Java_cn_sskbskdrin_ocr_OCR_test(JNIEnv *env, jobject obj, jintArray _data, jint 
     const int long_size = 640;
 
     double start = ncnn::get_current_time();
-    OCR *ocrengine = new OCR();
-    LOGD("main", "start cv");
-    ocrengine->detect(im_bgr, long_size);
-    LOGD("main", "end cv time%.lf", ncnn::get_current_time() - start);
-    delete ocrengine;
+//    OCR *ocrengine = new OCR();
+//    LOGD("main", "start cv");
+//    ocrengine->detect(im_bgr, long_size);
+//    LOGD("main", "end cv time%.lf", ncnn::get_current_time() - start);
+//    delete ocrengine;
 
     ncnn::Mat in = ncnn::Mat::from_pixels(im.data, ncnn::Mat::PIXEL_BGR2RGB, im.cols, im.rows);
     start = ncnn::get_current_time();

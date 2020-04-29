@@ -6,18 +6,23 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Process;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.widget.ImageView;
-
-import cn.sskbskdrin.ocr.OCR;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends Activity {
+import cn.sskbskdrin.ocr.OCR;
+
+public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     public static int PERMISSION_REQ = 0x123456;
 
@@ -50,12 +55,89 @@ public class MainActivity extends Activity {
                     PERMISSION_REQ);
             }
         }
+        SurfaceView surfaceView = findViewById(R.id.surface_view);
+        surfaceView.getHolder().addCallback(this);
+
+        ocr = new OCR();
+        ocr.setDrawListener(new OCR.DrawListener() {
+            @Override
+            public void draw(final OCR.Action action) {
+                actions.add(action);
+                drawHandler.post(drawRunnable);
+            }
+        });
+    }
+
+    private void drawSurface(Canvas canvas) {
+        if (bitmap == null) {
+            bitmap = BitmapFactory.decodeFile("/storage/emulated/0/ocr/pic/test.jpg");
+        }
+        canvas.drawBitmap(bitmap, 0, 0, null);
+
+        for (OCR.Action action : actions) {
+            action.draw(canvas);
+        }
+    }
+
+    SurfaceHolder holder;
+    HandlerThread drawThread = null;
+    Handler drawHandler = null;
+    List<OCR.Action> actions = new ArrayList<>();
+    OCR ocr = null;
+    Bitmap bitmap = null;
+
+    private Runnable drawRunnable = new Runnable() {
+        @Override
+        public void run() {
+            //            drawHandler.removeCallbacks(this);
+            //            drawHandler.postDelayed(this, 30);
+            if (holder != null) {
+                Canvas canvas = holder.lockCanvas();
+                drawSurface(canvas);
+                holder.unlockCanvasAndPost(canvas);
+            }
+        }
+    };
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        this.holder = holder;
+        if (drawThread != null) {
+            drawThread.quit();
+        }
+        drawThread = new HandlerThread("drawThread");
+        drawThread.start();
+        drawHandler = new Handler(drawThread.getLooper());
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        drawHandler.post(drawRunnable);
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+        this.holder = null;
+        if (drawHandler != null) {
+            drawHandler.removeCallbacksAndMessages(null);
+        }
+        drawHandler = null;
+        if (drawThread != null) {
+            drawThread.quit();
+        }
+        drawThread = null;
     }
 
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.detect:
                 //                startActivityForResult(new Intent(this, FaceDetectorActivity.class), 1001);
+                drawHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        ocr.test(new int[0], 0);
+                    }
+                });
                 break;
             case R.id.recognizer:
                 break;

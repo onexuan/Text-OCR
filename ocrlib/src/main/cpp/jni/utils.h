@@ -58,6 +58,29 @@ static JNIEnv *getEnv() {
     return _jniEnv;
 }
 
+static void saveBitmap(ncnn::Mat &src, std::string name, int id = 0) {
+    jclass clazz = javaEnv->FindClass("cn/sskbskdrin/ocr/OCR");
+    jmethodID createBitmap = javaEnv->GetMethodID(clazz, "createBitmap", "(II)Landroid/graphics/Bitmap;");
+    jobject bitmap = javaEnv->CallObjectMethod(javaObject, createBitmap, src.w, src.h);
+    src.to_android_bitmap(javaEnv, bitmap, 1);
+
+    int len = (int) (name + std::to_string(id)).size();
+    jbyteArray nn = javaEnv->NewByteArray(len);
+    javaEnv->SetByteArrayRegion(nn, 0, len, (jbyte *) (name + std::to_string(id)).c_str());
+    jmethodID saveBitmap = javaEnv->GetMethodID(clazz, "saveBitmap", "(Landroid/graphics/Bitmap;[B)V");
+    javaEnv->CallVoidMethod(javaObject, saveBitmap, bitmap, nn);
+}
+
+static void drawBitmap(ncnn::Mat &src, int left = 0, int top = 0) {
+    jclass clazz = javaEnv->FindClass("cn/sskbskdrin/ocr/OCR");
+    jmethodID createBitmap = javaEnv->GetMethodID(clazz, "createBitmap", "(II)Landroid/graphics/Bitmap;");
+    jobject bitmap = javaEnv->CallObjectMethod(javaObject, createBitmap, src.w, src.h);
+    src.to_android_bitmap(javaEnv, bitmap, 1);
+
+    jmethodID drawBitmap = javaEnv->GetMethodID(clazz, "drawBitmap", "(Landroid/graphics/Bitmap;II)V");
+    javaEnv->CallVoidMethod(javaObject, drawBitmap, bitmap, (jint) left, (jint) top);
+}
+
 static void drawPoint(float *data, int size, unsigned int color = 0xffff0000) {
     //if (javaEnv != NULL) {
     //JNIEnv *javaEnv = getEnv();
@@ -73,6 +96,19 @@ static void drawPoint(float *data, int size, unsigned int color = 0xffff0000) {
     //} else {
     //    LOGW(TAG, "javaEnv is null");
     //}
+}
+
+static void drawPoint(float *data, int size, int *colors) {
+    jclass clazz = javaEnv->FindClass("cn/sskbskdrin/ocr/OCR");
+    jmethodID drawPoints_ = javaEnv->GetMethodID(clazz, "drawPoints", "([F[I)V");
+
+    jfloatArray result = javaEnv->NewFloatArray(size);
+    javaEnv->SetFloatArrayRegion(result, 0, size, data);
+
+    jintArray color = javaEnv->NewIntArray(size);
+    javaEnv->SetIntArrayRegion(color, 0, size / 2, colors);
+
+    javaEnv->CallVoidMethod(javaObject, drawPoints_, result, color);
 }
 
 static void drawPoint(std::vector<float> vector) {

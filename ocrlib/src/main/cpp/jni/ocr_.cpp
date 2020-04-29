@@ -317,31 +317,17 @@ namespace ocr {
         }
     }
 
-    void getRotRectImg(ncnn::Mat &src, ncnn::Mat &dest, RectD &rect) {
-        double cosV = cos(-rect.angle);
-        double sinV = sin(-rect.angle);
-        double x = rect.lt.x;
-        double y = rect.lt.y;
+    ncnn::Mat getRotRectImg(ncnn::Mat &src, RectD &rect) {
+        int *data = (int *) src.data;
+        double cosV = cos(rect.angle);
+        double sinV = sin(rect.angle);
+        const int outW = ((int) round(rect.getWidth()));// / 16 * 16;
+        const int outH = ((int) round(rect.getHeight()));// / 16 * 16;
+        ncnn::Mat out(outW, outH, src.c, src.elemsize);
+        int *outData = (int *) out.data;
 
-        float *arr = new float[src.w * src.h];
-        int num = 0;
-        int h = (int) rect.getWidth();
-        int w = (int) rect.getHeight();
-        w = MAX(w, h);
+        LOGD(TAG, "getRotRectImg rect %d,%d", outW, outH);
 
-        for (int i = 0; i < 1; ++i) {
-            for (int j = 0; j < w; ++j) {
-                arr[num++] = (int) (x + j * cosV);
-                arr[num++] = (int) (y + j * sinV);
-            }
-        }
-        //for (int i = 0; i < 1; ++i) {
-        //    for (int j = 0; j < w; ++j) {
-        //        arr[num++] = (float) (rect.rt.x + j * cosV);
-        //        arr[num++] = (float) (rect.rt.y + j * sinV);
-        //    }
-        //}
-        drawPoint(arr, num);
         float *line = new float[8];
         line[0] = (float) rect[0].x;
         line[1] = (float) rect[0].y;
@@ -352,6 +338,43 @@ namespace ocr {
         line[6] = (float) rect[3].x;
         line[7] = (float) rect[3].y;
         drawLine(line, 8);
+
+        float *arr = new float[src.w * src.h * 2];
+        int *color = new int[src.w * src.h];
+        int num = 0;
+
+        double *tempCos = new double[outW];
+        double *tempSin = new double[outW];
+        int *cOffset = new int[src.c];
+        for (int i = 0; i < src.c; ++i) {
+            cOffset[i] = (int) src.cstep * i;
+        }
+        int m = MAX(outW, outH);
+        for (int i = 0; i < m; ++i) {
+            tempCos[i] = i * cosV;
+            tempSin[i] = i * sinV;
+        }
+        for (int i = 0; i < outH; ++i) {
+            double offsetX = rect.lt.x - tempSin[i];
+            double offsetY = rect.lt.y + tempCos[i];
+            for (int j = 0; j < outW; ++j) {
+                int x = (int) round(offsetX + tempCos[j]);
+                int y = (int) ceil(offsetY + tempSin[j]);
+
+                bool isNull = x < 0 || x >= src.w || y < 0 || y >= src.h;
+                for (int c = 0; c < src.c; ++c) {
+                    int index = y * src.w + x + cOffset[c];
+                    outData[i * outW + j + out.cstep * c] = isNull ? 0 : data[index];
+                }
+                int index = y * src.w + x;
+                color[num / 2] = data[index];
+                arr[num++] = x;
+                arr[num++] = y + 640;
+            }
+        }
+        drawBitmap(out, 0, 640);
+        drawPoint(arr, num, color);
+        return out;
     }
 
     cv::Mat draw(cv::Mat &src, RectD &rect) {
@@ -431,6 +454,7 @@ namespace ocr {
             int w = (int) rectD.getWidth();
             int h = (int) rectD.getHeight();
             int min_size = w > h ? h : w;
+            ncnn::Mat src = getRotRectImg(img, rectD);
 
             cv::RotatedRect temprect;
             cv::Mat part_im;
@@ -442,15 +466,14 @@ namespace ocr {
 
             const char *imagepath = "/storage/emulated/0/ocr/pic/test.jpg";
             cv::Mat im_bgr = cv::imread(imagepath);
-            saveImage(draw(im_bgr, rectD), "frame", i);
             // 获取裁剪区域图像,并且调整矩形倾斜角度，然后放在part_im
             RRLib::getRotRectImg(temprect, im_bgr, part_im);
 
-            saveImage(part_im, "result", i);
+//            saveImage(part_im, "result", i);
             int part_im_w = part_im.cols;
             int part_im_h = part_im.rows;
             // std::cout << "网络输出尺寸 (" << part_im_w<< ", " << part_im_h <<  ")" << std::endl;
-            if (part_im_h > 1.5 * part_im_w) part_im = matRotateClockWise90(part_im);
+//            if (part_im_h > 1.5 * part_im_w) part_im = matRotateClockWise90(part_im);
 
             cv::Mat angle_input = part_im.clone();
 
@@ -460,10 +483,12 @@ namespace ocr {
                                                                        part_im.rows,
                                                                        shufflenetv2_target_w,
                                                                        shufflenetv2_target_h);
+
             if (i == 1) {
-                ncnn::Mat out = shufflenet_input.clone();
-                getRotRectImg(shufflenet_input, out, rectD);
+                ncnn::Mat in_ = ncnn::Mat::from_pixels(im_bgr.data, ncnn::Mat::PIXEL_BGR2RGB, im_bgr.cols, im_bgr.rows);
+                ncnn::Mat out = getRotRectImg(in_, rectD);
             }
+
             shufflenet_input.substract_mean_normalize(mean_vals_pse_angle, norm_vals_pse_angle);
             ncnn::Extractor shufflenetv2_ex = angle_net.create_extractor();
             shufflenetv2_ex.set_num_threads(num_thread);
@@ -492,16 +517,26 @@ namespace ocr {
             float scale = crnn_h * 1.0 / part_im.rows;
             crnn_w_target = int(part_im.cols * scale);
 
-            saveImage(part_im, "result", i * 10 + i);
+//            saveImage(part_im, "result", i * 10 + i);
             cv::Mat img2 = part_im.clone();
 
-            ncnn::Mat crnn_in = ncnn::Mat::from_pixels_resize(img2.data,
-                                                              ncnn::Mat::PIXEL_BGR2GRAY, img2.cols, img2.rows,
+//            ncnn::Mat crnn_in = ncnn::Mat::from_pixels_resize(img2.data,
+//                                                              ncnn::Mat::PIXEL_BGR2GRAY, img2.cols, img2.rows,
+//                                                              crnn_w_target,
+//                                                              crnn_h);
+            ncnn::Mat crnn_in = ncnn::Mat::from_pixels_resize((unsigned char *) src.data,
+                                                              ncnn::Mat::PIXEL_BGR, (int) rectD.getWidth(), (int) rectD
+                    .getHeight(),
                                                               crnn_w_target,
                                                               crnn_h);
+//            crnn_in = getRotRectImg(img, rectD);
+//            crnn_in=src.reshape(crnn_w_target, crnn_h);
 
+            saveBitmap(crnn_in, ("result" + std::to_string(i * 10 + i)).c_str());
             // ncnn::Mat  crnn_in = ncnn::Mat::from_pixels_resize(part_im.data,
             //             ncnn::Mat::PIXEL_BGR2GRAY, part_im.cols, part_im.rows , crnn_w_target, crnn_h );
+
+//            crnn_in = getRotRectImg(img, rectD);
 
             crnn_in.substract_mean_normalize(mean_vals_crnn, norm_vals_crnn);
 

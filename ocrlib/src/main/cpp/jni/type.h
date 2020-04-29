@@ -97,35 +97,36 @@ namespace ocr {
         }
 
         void setPoint(Point_<T> p0, Point_<T> p1, Point_<T> p2, Point_<T> p3) {
-//            point[0] = p0;
-//            point[1] = p1;
-//            point[2] = p2;
-//            point[3] = p3;
-//            int left = 0, right = 0, top = 0, bottom = 0;
-//            for (int i = 0; i < 4; ++i) {
-//                PointD t = point[i];
-//                if (point[left].x > t.x || (point[left].x == t.x && point[left].y < t.y)) {
-//                    left = i;
-//                }
-//                if (point[right].x < t.x || (point[right].x == t.x && point[right].y > t.y)) {
-//                    right = i;
-//                }
-//                if (point[top].y > t.y || (point[top].y == t.y && point[top].x > t.x)) {
-//                    top = i;
-//                }
-//                if (point[bottom].y < t.y || (point[bottom].y == t.y && point[bottom].x < t.x)) {
-//                    bottom = i;
-//                }
-//            }
+            PointD point[4] = {};
+            point[0] = p0;
+            point[1] = p1;
+            point[2] = p2;
+            point[3] = p3;
+            int left = 0, right = 0, top = 0, bottom = 0;
+            for (int i = 0; i < 4; ++i) {
+                PointD t = point[i];
+                if (point[left].x > t.x || (point[left].x == t.x && point[left].y < t.y)) {
+                    left = i;
+                }
+                if (point[right].x < t.x || (point[right].x == t.x && point[right].y > t.y)) {
+                    right = i;
+                }
+                if (point[top].y > t.y || (point[top].y == t.y && point[top].x > t.x)) {
+                    top = i;
+                }
+                if (point[bottom].y < t.y || (point[bottom].y == t.y && point[bottom].x < t.x)) {
+                    bottom = i;
+                }
+            }
+            lt = point[top];
+            rt = point[right];
+            lb = point[left];
+            rb = point[bottom];
 
-            LOGD("type", "%.lf,%.lf %.lf,%.lf %.lf,%.lf %.lf,%.lf", p0.x, p0.y,
-                 p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
-
-            angle = p2.y == p1.y ? 0 : -atan((p2.y - p1.y) / (p2.x - p2.x));
-
-//            w = distance(p0.x, p0.y, p1.x, p1.y);
-//            h = distance(p0.x, p0.y, p3.x, p3.y);
-//            LOGD("type", "w=%.lf,h=%.lf angle=%.3lf", w, h, angle);
+            angle = lt.y == rt.y ? 0 : atan((rt.y - lt.y) / (rt.x - lt.x));
+            LOGD(TAG, "rect=%.f,%.f %.f,%.f %.f,%.f %.f,%.f angle=%.2lf", lt.x, lt.y,
+                 rt.x, rt.y, rb.x, rb.y, lb.x, lb.y, angle);
+            LOGD(TAG, "get point w=%.lf h=%.lf", getWidth(), getHeight());
         }
 
         void setPoint(PointD &center, PointD &size, double angle) {
@@ -140,31 +141,27 @@ namespace ocr {
             rt.y = 2 * center.y - lb.y;
             rb.x = 2 * center.x - lt.x;
             rb.y = 2 * center.y - lt.y;
-            this->angle = angle;
-            //LOGD(TAG, "rect=%.f,%.f %.f,%.f %.f,%.f %.f,%.f", lb.x, lb.y, lt.x, lt.y,
-            //     rt.x, rt.y, rb.x, rb.y);
-            //LOGD(TAG, "get point w=%.lf h=%.lf", getWidth(), getHeight());
-            //LOGD(TAG, "set point w=%.lf h=%.lf", size.x, size.y);
+            setPoint(lt, rt, rb, lb);
         }
 
         Point_<T> operator[](const int index) {
             int v = (index % 4 + 4) % 4;
             switch (v) {
                 case 0:
-                    return lb;
-                case 1:
                     return lt;
-                case 2:
+                case 1:
                     return rt;
-                default:
+                case 2:
                     return rb;
+                default:
+                    return lb;
             }
         }
 
-        Point_<T> lb;
         Point_<T> lt;
         Point_<T> rt;
         Point_<T> rb;
+        Point_<T> lb;
         double angle = 0;
 
         T getWidth() {
