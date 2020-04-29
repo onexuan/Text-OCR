@@ -225,7 +225,6 @@ namespace ocr {
     ) {
         LOGD(TAG, "pse_decode thresh=%.3f", thresh);
         /// get kernels
-        float *src = (float *) features.data;
         const int w = features.w;
         const int h = features.h;
         float _thresh = thresh;
@@ -234,29 +233,38 @@ namespace ocr {
         ncnn::Mat scores(w, h, (size_t) 2);
         int16_t *scores_data = (int16_t *) scores.data;
         LOGD(TAG, "parse score");
+
+        float *point = new float[w * h * 2];
+        int num = 0;
         for (int c = 0; c < features.c; ++c) {
+            float *src = (float *)features.data + features.cstep * c;
             bool sc = c == features.c - 1;
             ncnn::Mat kernel(w, h, (size_t) 1);
             int8_t *data = (int8_t *) (kernel.data);
-            int offset = w * h * c;
             for (int i = 0; i < h; i++) {
                 for (int j = 0; j < w; j++) {
                     int index = i * w + j;
                     // 将分数放大到10000倍存储，以节省空间
-                    data[index] = (int8_t) (src[index + offset] >= _thresh ? 1 : 0);
+                    data[index] = (int8_t) (src[index] >= _thresh ? 1 : 0);
                     if (sc) {
-                        scores_data[index] = (int16_t) (src[offset + index] * 10000);
+                        scores_data[index] = (int16_t) (src[index] * 10000);
+                    }
+                    if (data[index] && c == 0) {
+                        point[num++] = j;
+                        point[num++] = i;
                     }
                 }
             }
             kernels.push_back(kernel);
             _thresh = thresh * ratio;
         }
+        drawPoint(point, num);
 
         ncnn::Mat mask(w, h, (size_t) 1);
         std::map<int, std::queue<Point2i>> map;
 
         const int count = mark((int8_t *) kernels[0].data, scores, mask, map);
+        //drawBitmap(kernels[0],0,640);
 
         for (int i = 1; i <= count; ++i) {
             LOGI(TAG, "before key=%d value=%d", i, (int) map[i].size());
@@ -317,16 +325,28 @@ namespace ocr {
         }
     }
 
-    ncnn::Mat getRotRectImg(ncnn::Mat &src, RectD &rect) {
-        int *data = (int *) src.data;
+    ncnn::Mat getRotRectImg(ncnn::Mat &src, RectD &rect, int targetW = 0, int targetH = 0) {
+        float *srcR = (float *) src.data;
+        float *srcG = (float *) src.data + src.cstep;
+        float *srcB = (float *) src.data + src.cstep * 2;
         double cosV = cos(rect.angle);
         double sinV = sin(rect.angle);
         const int outW = ((int) round(rect.getWidth()));// / 16 * 16;
         const int outH = ((int) round(rect.getHeight()));// / 16 * 16;
         ncnn::Mat out(outW, outH, src.c, src.elemsize);
-        int *outData = (int *) out.data;
+        float *outR = (float *) out.data;
+        float *outG = (float *) out.data + out.cstep;
+        float *outB = (float *) out.data + out.cstep * 2;
 
         LOGD(TAG, "getRotRectImg rect %d,%d", outW, outH);
+        unsigned char *ccc = new uchar[1024 * 3 + 1];
+        for (int i = 0; i < 1024 * 3;) {
+            ccc[i++] = 0x00;
+            ccc[i++] = 0x00;
+            ccc[i++] = 0xf0;
+        }
+        ncnn::Mat ttt = ncnn::Mat::from_pixels(ccc, ncnn::Mat::PIXEL_BGR, 32, 32);
+        drawBitmap(ttt, 640, 640);
 
         float *line = new float[8];
         line[0] = (float) rect[0].x;
@@ -362,41 +382,29 @@ namespace ocr {
                 int y = (int) ceil(offsetY + tempSin[j]);
 
                 bool isNull = x < 0 || x >= src.w || y < 0 || y >= src.h;
-                for (int c = 0; c < src.c; ++c) {
-                    int index = y * src.w + x + cOffset[c];
-                    outData[i * outW + j + out.cstep * c] = isNull ? 0 : data[index];
-                }
                 int index = y * src.w + x;
-                color[num / 2] = data[index];
+                int ourIndex = i * outW + j;
+
+                if (!isNull) {
+                    outR[ourIndex] = srcR[index];
+                    outG[ourIndex] = srcG[index];
+                    outB[ourIndex] = srcB[index];
+                }
+
+                int id = num / 2;
+                color[id] = 0xff000000;
+                int R = (int) srcR[index];
+                int G = (int) srcG[index];
+                int B = (int) srcB[index];
+                int grey = (R * 19595 + G * 38469 + B * 7472) >> 16;
+                color[id] |= grey | grey << 8 | grey << 16;
                 arr[num++] = x;
                 arr[num++] = y + 640;
             }
         }
-        drawBitmap(out, 0, 640);
+        //drawBitmap(out, 0, 640);
         drawPoint(arr, num, color);
         return out;
-    }
-
-    cv::Mat draw(cv::Mat &src, RectD &rect) {
-        cv::Mat dst;
-        if (src.channels() == 1) {
-            cv::cvtColor(src, dst, cv::COLOR_GRAY2BGR);
-        } else {
-            dst = src.clone();
-        }
-        auto color = cv::Scalar(0, 0, 255);
-        cv::line(dst, cv::Point((int) rect[0].x, (int) rect[0].y), cv::Point((int) rect[1].x, (int) rect[1].y),
-                 color,
-                 1);
-        cv::line(dst, cv::Point((int) rect[1].x, (int) rect[1].y), cv::Point((int) rect[2].x, (int) rect[2].y),
-                 color,
-                 1);
-        cv::line(dst, cv::Point((int) rect[2].x, (int) rect[2].y), cv::Point((int) rect[3].x, (int) rect[3].y),
-                 color, 1);
-        cv::line(dst, cv::Point((int) rect[3].x, (int) rect[3].y), cv::Point((int) rect[0].x, (int) rect[0].y),
-                 color,
-                 1);
-        return dst;
     }
 
     cv::Mat matRotateClockWise180(cv::Mat src)//顺时针180
@@ -443,7 +451,7 @@ namespace ocr {
         double st = ncnn::get_current_time();
 
         std::map<int, std::vector<Point>> contoursMap;
-        const int count = pse_decode(pre, contoursMap, 0.7311, 10, 1.1);
+        const int count = pse_decode(pre, contoursMap, 0.7311, 10, 1);
 
         for (int i = 1; i <= count; ++i) {
             RectD rectD = ocr::minAreaRect(contoursMap[i]);
@@ -477,13 +485,13 @@ namespace ocr {
 
             cv::Mat angle_input = part_im.clone();
 
-            //分类 计算文本的方向
+            //分类 计算文本的方向 c=3，宽高固定
             ncnn::Mat shufflenet_input = ncnn::Mat::from_pixels_resize(angle_input.data,
                                                                        ncnn::Mat::PIXEL_BGR2RGB, angle_input.cols,
                                                                        part_im.rows,
                                                                        shufflenetv2_target_w,
                                                                        shufflenetv2_target_h);
-
+            saveBitmap(shufflenet_input, "shuffle", i);
             if (i == 1) {
                 ncnn::Mat in_ = ncnn::Mat::from_pixels(im_bgr.data, ncnn::Mat::PIXEL_BGR2RGB, im_bgr.cols, im_bgr.rows);
                 ncnn::Mat out = getRotRectImg(in_, rectD);
@@ -501,47 +509,34 @@ namespace ocr {
             //判断用横排还是竖排模型 { 0 : "hengdao",  1:"hengzhen",  2:"shudao",  3:"shuzhen"} #hengdao: 文本行横向倒立 其他类似
             int angle_index = 0;
             int max_value;
-            for (int i = 0; i < angle_preds.w; i++) {
-                // std::cout << srcdata[i] << std::endl;
-                if (i == 0)max_value = srcdata[i];
-                else if (srcdata[i] > angle_index) {
-                    angle_index = i;
-                    max_value = srcdata[i];
+            for (int j = 0; j < angle_preds.w; j++) {
+                if (j == 0)max_value = (int) srcdata[j];
+                else if (srcdata[j] > angle_index) {
+                    angle_index = j;
+                    max_value = (int) srcdata[j];
                 }
             }
-
+            LOGI(TAG, "angle_index=%d max=%d", angle_index, max_value);
             if (angle_index == 0 || angle_index == 2) part_im = matRotateClockWise180(part_im);
 
-            // 开始文本识别
-            int crnn_w_target;
-            float scale = crnn_h * 1.0 / part_im.rows;
-            crnn_w_target = int(part_im.cols * scale);
+
+            // 开始文本识别 高固定32，对宽进行按比例缩放
+            float scale = crnn_h * 1.0f / part_im.rows;
+            int crnn_w_target = int(part_im.cols * scale);
+            LOGI(TAG, "crnn targetW=%d", crnn_w_target);
 
 //            saveImage(part_im, "result", i * 10 + i);
             cv::Mat img2 = part_im.clone();
 
-//            ncnn::Mat crnn_in = ncnn::Mat::from_pixels_resize(img2.data,
-//                                                              ncnn::Mat::PIXEL_BGR2GRAY, img2.cols, img2.rows,
-//                                                              crnn_w_target,
-//                                                              crnn_h);
-            ncnn::Mat crnn_in = ncnn::Mat::from_pixels_resize((unsigned char *) src.data,
-                                                              ncnn::Mat::PIXEL_BGR, (int) rectD.getWidth(), (int) rectD
-                    .getHeight(),
+            // data类型为int， c=1,
+            ncnn::Mat crnn_in = ncnn::Mat::from_pixels_resize(img2.data,
+                                                              ncnn::Mat::PIXEL_BGR2GRAY, img2.cols, img2.rows,
                                                               crnn_w_target,
                                                               crnn_h);
-//            crnn_in = getRotRectImg(img, rectD);
-//            crnn_in=src.reshape(crnn_w_target, crnn_h);
-
-            saveBitmap(crnn_in, ("result" + std::to_string(i * 10 + i)).c_str());
-            // ncnn::Mat  crnn_in = ncnn::Mat::from_pixels_resize(part_im.data,
-            //             ncnn::Mat::PIXEL_BGR2GRAY, part_im.cols, part_im.rows , crnn_w_target, crnn_h );
-
-//            crnn_in = getRotRectImg(img, rectD);
+            saveBitmap(crnn_in, "crnn_in", i);
 
             crnn_in.substract_mean_normalize(mean_vals_crnn, norm_vals_crnn);
-
             ncnn::Mat crnn_preds;
-
             // time1 = static_cast<double>( cv::getTickCount());
             // std::cout << angle_index << std::endl;
             if (angle_index == 0 || angle_index == 1) {

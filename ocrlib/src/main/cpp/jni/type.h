@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 #include <cstdlib>
+#include <cstdint>
 #include "log.h"
 
 namespace ocr {

@@ -41,23 +41,6 @@ jintArray toIntArray(JNIEnv *env, I *data, int len) {
     return result;
 }
 
-static JNIEnv *getEnv() {
-    JavaVM *g_javaVM;
-    JNIEnv env;
-    env.GetJavaVM(&g_javaVM);
-    int status;
-    JNIEnv *_jniEnv = NULL;
-    status = g_javaVM->GetEnv((void **) &_jniEnv, JNI_VERSION_1_6);
-
-    if (status < 0) {
-        status = g_javaVM->AttachCurrentThread(&_jniEnv, NULL);
-        if (status < 0) {
-            _jniEnv = NULL;
-        }
-    }
-    return _jniEnv;
-}
-
 static void saveBitmap(ncnn::Mat &src, std::string name, int id = 0) {
     jclass clazz = javaEnv->FindClass("cn/sskbskdrin/ocr/OCR");
     jmethodID createBitmap = javaEnv->GetMethodID(clazz, "createBitmap", "(II)Landroid/graphics/Bitmap;");
@@ -84,8 +67,6 @@ static void drawBitmap(ncnn::Mat &src, int left = 0, int top = 0) {
 static void drawPoint(float *data, int size, unsigned int color = 0xffff0000) {
     //if (javaEnv != NULL) {
     //JNIEnv *javaEnv = getEnv();
-
-    LOGI(TAG, "java env=%x obj=%x", javaEnv, javaObject);
 
     jclass clazz = javaEnv->FindClass("cn/sskbskdrin/ocr/OCR");
     jmethodID drawPoints_ = javaEnv->GetMethodID(clazz, "drawPoints", "([FI)V");
