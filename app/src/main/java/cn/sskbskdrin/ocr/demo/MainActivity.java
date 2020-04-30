@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -69,6 +70,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     private void drawSurface(Canvas canvas) {
+        canvas.drawColor(Color.WHITE);
         if (bitmap == null) {
             bitmap = BitmapFactory.decodeFile("/storage/emulated/0/ocr/pic/test.jpg");
         }

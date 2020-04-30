@@ -3,7 +3,6 @@
 //
 
 #include "ocr_.h"
-#include "RRLib.h"
 #include "utils.h"
 #include <string>
 #include <iostream>
@@ -237,7 +236,7 @@ namespace ocr {
         float *point = new float[w * h * 2];
         int num = 0;
         for (int c = 0; c < features.c; ++c) {
-            float *src = (float *)features.data + features.cstep * c;
+            float *src = (float *) features.data + features.cstep * c;
             bool sc = c == features.c - 1;
             ncnn::Mat kernel(w, h, (size_t) 1);
             int8_t *data = (int8_t *) (kernel.data);
@@ -317,15 +316,74 @@ namespace ocr {
         return count;
     }
 
-    void saveImage(cv::Mat mat, std::string name, int id = -1) {
-        if (id < 0) {
-            cv::imwrite((path + name + ".jpg").c_str(), mat);
-        } else {
-            cv::imwrite((path + name + std::to_string(id) + ".jpg").c_str(), mat);
+    ncnn::Mat ocr::resize(ncnn::Mat &src, int targetW, int targetH) {
+        if (targetW == src.w && targetH == src.h) {
+            return src;
         }
+        double st = ncnn::get_current_time();
+        uchar *ccc = new uchar[src.w * src.h * src.c];
+        int type = src.c == 4 ? ncnn::Mat::PIXEL_BGRA : (src.c == 3 ? ncnn::Mat::PIXEL_BGR : ncnn::Mat::PIXEL_GRAY);
+        src.to_pixels(ccc, type);
+        ncnn::Mat result = ncnn::Mat::from_pixels_resize(ccc, type, src.w, src.h, targetW, targetH);
+        LOGD(TAG, "resize time=%.3lf", ncnn::get_current_time() - st);
+        return result;
+    }
+
+    ncnn::Mat getRectBGRMat(ncnn::Mat &src, RectD &rect) {
+        double st = ncnn::get_current_time();
+        const int outW = ((int) round(rect.getWidth()));// / 16 * 16;
+        const int outH = ((int) round(rect.getHeight()));// / 16 * 16;
+
+        ncnn::Mat out(outW, outH * 3, 1, (size_t) 1);
+        out.h = outH;
+
+        float *srcR = (float *) src.data;
+        float *srcG = (float *) src.data + src.cstep;
+        float *srcB = (float *) src.data + src.cstep * 2;
+        double cosV = cos(rect.angle);
+        double sinV = sin(rect.angle);
+
+        unsigned char *outData = (unsigned char *) out.data;
+        int num = 0;
+
+        double *tempCos = new double[outW];
+        double *tempSin = new double[outW];
+        int *cOffset = new int[src.c];
+        for (int i = 0; i < src.c; ++i) {
+            cOffset[i] = (int) src.cstep * i;
+        }
+        int m = MAX(outW, outH);
+        for (int i = 0; i < m; ++i) {
+            tempCos[i] = i * cosV;
+            tempSin[i] = i * sinV;
+        }
+        for (int i = 0; i < outH; ++i) {
+            double offsetX = rect.lt.x - tempSin[i];
+            double offsetY = rect.lt.y + tempCos[i];
+            for (int j = 0; j < outW; ++j) {
+                int x = (int) round(offsetX + tempCos[j]);
+                int y = (int) ceil(offsetY + tempSin[j]);
+
+                bool isNull = x < 0 || x >= src.w || y < 0 || y >= src.h;
+                int index = y * src.w + x;
+
+                if (isNull) {
+                    outData[num++] = 0;
+                    outData[num++] = 0;
+                    outData[num++] = 0;
+                } else {
+                    outData[num++] = (unsigned char) srcR[index];
+                    outData[num++] = (unsigned char) srcG[index];
+                    outData[num++] = (unsigned char) srcB[index];
+
+                }
+            }
+        }
+        return out;
     }
 
     ncnn::Mat getRotRectImg(ncnn::Mat &src, RectD &rect, int targetW = 0, int targetH = 0) {
+        double st = ncnn::get_current_time();
         float *srcR = (float *) src.data;
         float *srcG = (float *) src.data + src.cstep;
         float *srcB = (float *) src.data + src.cstep * 2;
@@ -339,14 +397,6 @@ namespace ocr {
         float *outB = (float *) out.data + out.cstep * 2;
 
         LOGD(TAG, "getRotRectImg rect %d,%d", outW, outH);
-        unsigned char *ccc = new uchar[1024 * 3 + 1];
-        for (int i = 0; i < 1024 * 3;) {
-            ccc[i++] = 0x00;
-            ccc[i++] = 0x00;
-            ccc[i++] = 0xf0;
-        }
-        ncnn::Mat ttt = ncnn::Mat::from_pixels(ccc, ncnn::Mat::PIXEL_BGR, 32, 32);
-        drawBitmap(ttt, 640, 640);
 
         float *line = new float[8];
         line[0] = (float) rect[0].x;
@@ -404,98 +454,66 @@ namespace ocr {
         }
         //drawBitmap(out, 0, 640);
         drawPoint(arr, num, color);
+        if (targetW != 0 || targetH != 0) {
+            if (targetW == 0) {
+                targetW = targetH * out.w / out.h;
+            }
+            if (targetH == 0) {
+                targetH = targetW * out.h / out.w;
+            }
+            resize(out, targetW, targetH);
+        }
+        LOGD(TAG, "getRotRectImg time=%.3lf", ncnn::get_current_time() - st);
         return out;
-    }
-
-    cv::Mat matRotateClockWise180(cv::Mat src)//顺时针180
-    {
-        LOGD(TAG, "matRotateClockWise180");
-
-//0: 沿X轴翻转； >0: 沿Y轴翻转； <0: 沿X轴和Y轴翻转
-        flip(src, src,
-             0);// 翻转模式，flipCode == 0垂直翻转（沿X轴翻转），flipCode>0水平翻转（沿Y轴翻转），flipCode<0水平垂直翻转（先沿X轴翻转，再沿Y轴翻转，等价于旋转180°）
-        flip(src, src, 1);
-        return src;
-//transpose(src, src);// 矩阵转置
-    }
-
-    cv::Mat matRotateClockWise90(cv::Mat src) {
-        LOGD(TAG, "matRotateClockWise90");
-
-// 矩阵转置
-        transpose(src, src);
-//0: 沿X轴翻转； >0: 沿Y轴翻转； <0: 沿X轴和Y轴翻转
-        flip(src, src,
-             1);// 翻转模式，flipCode == 0垂直翻转（沿X轴翻转），flipCode>0水平翻转（沿Y轴翻转），flipCode<0水平垂直翻转（先沿X轴翻转，再沿Y轴翻转，等价于旋转180°）
-        return src;
     }
 
     void OCR_::detect(ncnn::Mat img) {
         LOGD(TAG, "detect");
         double start = ncnn::get_current_time();
+        double st = start;
         Point size = getScaleSize(img);
+        img = resize(img, size.x, size.y);
         //ncnn::Mat in = img.reshape(size.x, size.y);
+        LOGI(TAG, "resize time=%.2lf", ncnn::get_current_time() - st);
         ncnn::Mat in = img.clone();
         LOGI(TAG, "in w=%d,h=%d,c=%d", in.w, in.h, in.c);
-        in.substract_mean_normalize(mean_vals_pse_angle, norm_vals_pse_angle);
-
+        st = ncnn::get_current_time();
         // 预处理图片
+        in.substract_mean_normalize(mean_vals_pse_angle, norm_vals_pse_angle);
         ncnn::Extractor ex = psenet.create_extractor();
         ex.set_num_threads(num_thread);
         ex.input("input", in);
         ncnn::Mat pre;
-        double begin = ncnn::get_current_time();
         ex.extract("out", pre);
-        LOGI(TAG, "psenet前向时间:%lf", ncnn::get_current_time() - begin);
+        LOGI(TAG, "pse net time=%.2lf", ncnn::get_current_time() - st);
         LOGI(TAG, "网络输出尺寸w=%d,h=%d,c=%d", pre.w, pre.h, pre.c);
-        double st = ncnn::get_current_time();
 
+        st = ncnn::get_current_time();
         std::map<int, std::vector<Point>> contoursMap;
         const int count = pse_decode(pre, contoursMap, 0.7311, 10, 1);
 
+        LOGI(TAG, "找区域时间：%.2lf", ncnn::get_current_time() - st);
         for (int i = 1; i <= count; ++i) {
+            st = ncnn::get_current_time();
             RectD rectD = ocr::minAreaRect(contoursMap[i]);
-            LOGD(TAG, "rect=%.f,%.f %.f,%.f %.f,%.f %.f,%.f", rectD[0].x, rectD[0].y, rectD[1].x, rectD[1].y,
-                 rectD[2].x, rectD[2].y, rectD[3].x, rectD[3].y);
-            LOGD(TAG, "rect w=%.lf h=%.lf angle=%.2lf", rectD.getWidth(), rectD.getHeight(), rectD.angle * 180 / CV_PI);
+//            LOGD(TAG, "rect=%.f,%.f %.f,%.f %.f,%.f %.f,%.f", rectD[0].x, rectD[0].y, rectD[1].x, rectD[1].y,
+//                 rectD[2].x, rectD[2].y, rectD[3].x, rectD[3].y);
+            LOGD(TAG, "rect w=%.lf h=%.lf angle=%.2lf", rectD.getWidth(), rectD.getHeight(), rectD.angle * 180 / M_PI);
+            LOGI(TAG, "min area rect time=%.2lf", ncnn::get_current_time() - st);
 
-            int w = (int) rectD.getWidth();
-            int h = (int) rectD.getHeight();
-            int min_size = w > h ? h : w;
-            ncnn::Mat src = getRotRectImg(img, rectD);
-
-            cv::RotatedRect temprect;
-            cv::Mat part_im;
-            temprect.size.width = int(w + min_size * 0.15);// 增加矩形范围
-            temprect.size.height = int(h + min_size * 0.15);
-            temprect.center.x = static_cast<float>(rectD.getCenter().x);
-            temprect.center.y = static_cast<float>(rectD.getCenter().y);
-            temprect.angle = static_cast<float>(rectD.angle * 180 / CV_PI);
-
-            const char *imagepath = "/storage/emulated/0/ocr/pic/test.jpg";
-            cv::Mat im_bgr = cv::imread(imagepath);
-            // 获取裁剪区域图像,并且调整矩形倾斜角度，然后放在part_im
-            RRLib::getRotRectImg(temprect, im_bgr, part_im);
-
-//            saveImage(part_im, "result", i);
-            int part_im_w = part_im.cols;
-            int part_im_h = part_im.rows;
-            // std::cout << "网络输出尺寸 (" << part_im_w<< ", " << part_im_h <<  ")" << std::endl;
-//            if (part_im_h > 1.5 * part_im_w) part_im = matRotateClockWise90(part_im);
-
-            cv::Mat angle_input = part_im.clone();
+//            int w = (int) rectD.getWidth();
+//            int h = (int) rectD.getHeight();
+//            int min_size = w > h ? h : w;
+            ncnn::Mat rgb = getRectBGRMat(img, rectD);
 
             //分类 计算文本的方向 c=3，宽高固定
-            ncnn::Mat shufflenet_input = ncnn::Mat::from_pixels_resize(angle_input.data,
-                                                                       ncnn::Mat::PIXEL_BGR2RGB, angle_input.cols,
-                                                                       part_im.rows,
+            ncnn::Mat shufflenet_input = ncnn::Mat::from_pixels_resize((uchar *) rgb.data,
+                                                                       ncnn::Mat::PIXEL_BGR, rgb.w,
+                                                                       rgb.h,
                                                                        shufflenetv2_target_w,
                                                                        shufflenetv2_target_h);
+
             saveBitmap(shufflenet_input, "shuffle", i);
-            if (i == 1) {
-                ncnn::Mat in_ = ncnn::Mat::from_pixels(im_bgr.data, ncnn::Mat::PIXEL_BGR2RGB, im_bgr.cols, im_bgr.rows);
-                ncnn::Mat out = getRotRectImg(in_, rectD);
-            }
 
             shufflenet_input.substract_mean_normalize(mean_vals_pse_angle, norm_vals_pse_angle);
             ncnn::Extractor shufflenetv2_ex = angle_net.create_extractor();
@@ -517,28 +535,27 @@ namespace ocr {
                 }
             }
             LOGI(TAG, "angle_index=%d max=%d", angle_index, max_value);
-            if (angle_index == 0 || angle_index == 2) part_im = matRotateClockWise180(part_im);
-
+            if (angle_index == 0 || angle_index == 2) {
+                uchar *temp = (uchar *) ncnn::fastMalloc((size_t) (rgb.w * rgb.h * 3));
+                ncnn::kanna_rotate_c3((uchar *) rgb.data, rgb.w, rgb.h, temp, rgb.w, rgb.h, 3);
+                rgb.data = temp;
+            }
 
             // 开始文本识别 高固定32，对宽进行按比例缩放
-            float scale = crnn_h * 1.0f / part_im.rows;
-            int crnn_w_target = int(part_im.cols * scale);
-            LOGI(TAG, "crnn targetW=%d", crnn_w_target);
-
-//            saveImage(part_im, "result", i * 10 + i);
-            cv::Mat img2 = part_im.clone();
+//            float scale = crnn_h * 1.0f / part_im.rows;
+//            int crnn_w_target = int(part_im.cols * scale);
+//            LOGI(TAG, "crnn targetW=%d", crnn_w_target);
 
             // data类型为int， c=1,
-            ncnn::Mat crnn_in = ncnn::Mat::from_pixels_resize(img2.data,
-                                                              ncnn::Mat::PIXEL_BGR2GRAY, img2.cols, img2.rows,
+            int crnn_w_target = int(rgb.w * 1.0f * crnn_h / rgb.h);
+            ncnn::Mat crnn_in = ncnn::Mat::from_pixels_resize((uchar *) rgb.data,
+                                                              ncnn::Mat::PIXEL_BGR2GRAY, rgb.w, rgb.h,
                                                               crnn_w_target,
                                                               crnn_h);
             saveBitmap(crnn_in, "crnn_in", i);
 
             crnn_in.substract_mean_normalize(mean_vals_crnn, norm_vals_crnn);
             ncnn::Mat crnn_preds;
-            // time1 = static_cast<double>( cv::getTickCount());
-            // std::cout << angle_index << std::endl;
             if (angle_index == 0 || angle_index == 1) {
                 ncnn::Extractor crnn_ex = crnn_net.create_extractor();
                 crnn_ex.set_num_threads(num_thread);

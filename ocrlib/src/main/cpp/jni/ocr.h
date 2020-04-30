@@ -72,5 +72,5 @@ private:
 
 };
 
-
+cv::Mat resize_img(cv::Mat src, const int long_size);
 #endif

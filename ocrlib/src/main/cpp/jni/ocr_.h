@@ -13,6 +13,10 @@
 
 namespace ocr {
 
+#ifndef uchar
+    typedef unsigned char uchar;
+#endif
+
     class OCR_ {
 
     public:
@@ -40,6 +44,8 @@ namespace ocr {
         std::vector<std::string> alphabetChinese;
 
     };
+
+    ncnn::Mat resize(ncnn::Mat &src, int targetW, int targetH);
 }
 
 #endif //OCR_OCR__H
