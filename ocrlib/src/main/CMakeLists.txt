@@ -29,22 +29,20 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -fvisibility-inlines-hidden")
 
 include_directories(
-        ${cmake_dir}/cpp
-        ${cmake_dir}/cpp/ncnn/include/ncnn)
+    ${cmake_dir}/cpp
+    ${cmake_dir}/cpp/ncnn/include/ncnn)
 #link_directories(${CMAKE_CURRENT_SOURCE_DIR}/cpp/ncnn/lib/)
-
-set(opencv_libs ${cmake_dir}/jniLibs/${ANDROID_ABI}/libopencv_java4.so)
 
 add_library(ncnn STATIC IMPORTED)
 set_property(
-        TARGET
-        ncnn
-        PROPERTY
-        IMPORTED_LOCATION
-        ${cmake_dir}/cpp/ncnn/lib/${ANDROID_ABI}/libncnn.a)
+    TARGET
+    ncnn
+    PROPERTY
+    IMPORTED_LOCATION
+    ${cmake_dir}/cpp/ncnn/lib/${ANDROID_ABI}/libncnn.a)
 
 file(GLOB_RECURSE src_files ${cmake_dir}/cpp/jni/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${src_files})
 
-target_link_libraries(ocr android jnigraphics z m dl log atomic ncnn ${opencv_libs})
+target_link_libraries(ocr android jnigraphics z m dl log atomic ncnn)

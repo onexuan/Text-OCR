@@ -11,12 +11,6 @@
 #include "benchmark.h"
 #include <jni.h>
 
-#if __ANDROID_API__ >= 9
-
-#include <android/asset_manager.h>
-
-#endif // __ANDROID_API__ >= 9
-
 namespace ocr {
 
 #ifndef uchar
@@ -26,17 +20,11 @@ namespace ocr {
     class OCR_ {
 
     public:
-        OCR_(char *path);
-
-#if __ANDROID_API__ >= 9
-
-        OCR_(AAssetManager *manager, char *path);
-
-#endif // __ANDROID_API__ >= 9
+        OCR_();
 
         ~OCR_();
 
-        std::vector<std::string> detect(ncnn::Mat img);
+        void detect(ncnn::Mat img);
 
     private:
 

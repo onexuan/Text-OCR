@@ -10,16 +10,17 @@
 #include <map>
 #include <queue>
 #include <omp.h>
-#include <sstream>
 
 #define CRNN_LSTM 0
 namespace ocr {
 
 #define TAG "ocr_"
 
-    OCR_::OCR_(char *p) {
+    std::string path = "/storage/emulated/0/ocr/pic/";
 
-        std::string path(p);
+    OCR_::OCR_() {
+
+        std::string path = "/storage/emulated/0/ocr/";
 
         psenet.load_param((path + "psenet_lite_mbv2.param").c_str());
         psenet.load_model((path + "psenet_lite_mbv2.bin").c_str());
@@ -35,6 +36,7 @@ namespace ocr {
         crnn_vertical_net.load_param((path + "crnn_lite_dw_dense_vertical.param").c_str());
         crnn_vertical_net.load_model((path + "crnn_lite_dw_dense_vertical.bin").c_str());
 #endif
+
         angle_net.load_param((path + "shufflenetv2_05_angle.param").c_str());
         angle_net.load_model((path + "shufflenetv2_05_angle.bin").c_str());
 
@@ -42,54 +44,16 @@ namespace ocr {
         std::ifstream in((path + "keys.txt").c_str());
         std::string filename;
         std::string line;
-        // 有该文件
-        if (in) {
-            while (getline(in, line)) {// line中不包括每行的换行符
+
+        if (in) // 有该文件
+        {
+            while (getline(in, line)) // line中不包括每行的换行符
+            {
                 alphabetChinese.push_back(line);
             }
-        } else {// 没有该文件
-            LOGE(TAG, "no keys file path=%s", path.data());
-        }
-    }
-
-    OCR_::OCR_(AAssetManager *manager, char *p) {
-        std::string path(p);
-        psenet.load_param(manager, (path + "psenet_lite_mbv2.param").c_str());
-        psenet.load_model(manager, (path + "psenet_lite_mbv2.bin").c_str());
-
-#if CRNN_LSTM
-        crnn_net.load_param((path + "crnn_lite_lstm_v2.param").c_str());
-          crnn_net.load_model((path + "crnn_lite_lstm_v2.bin").c_str());
-          crnn_vertical_net.load_param((path + "crnn_lite_lstm_vertical.param").c_str());
-          crnn_vertical_net.load_model((path + "crnn_lite_lstm_vertical.bin").c_str());
-#else
-        crnn_net.load_param(manager, (path + "crnn_lite_dw_dense.param").c_str());
-        crnn_net.load_model(manager, (path + "crnn_lite_dw_dense.bin").c_str());
-        crnn_vertical_net.load_param(manager, (path + "crnn_lite_dw_dense_vertical.param").c_str());
-        crnn_vertical_net.load_model(manager, (path + "crnn_lite_dw_dense_vertical.bin").c_str());
-#endif
-        angle_net.load_param(manager, (path + "shufflenetv2_05_angle.param").c_str());
-        angle_net.load_model(manager, (path + "shufflenetv2_05_angle.bin").c_str());
-
-        //load keys
-        AAsset *asset = AAssetManager_open(manager, (path + "keys.txt").c_str(), AASSET_MODE_BUFFER);
-        if (!asset) {
-            LOGE(TAG, "open keys.txt failed");
-            return;
-        }
-        unsigned long len = (unsigned long) AAsset_getLength(asset);
-        std::string words_buffer;
-        words_buffer.resize(len);
-        int ret = AAsset_read(asset, (void *) words_buffer.data(), len);
-        AAsset_close(asset);
-        if (ret != len) {
-            LOGE(TAG, "read keys.txt failed");
-            return;
-        }
-        std::istringstream f(words_buffer);
-        std::string line;
-        while (getline(f, line)) {// line中不包括每行的换行符
-            alphabetChinese.push_back(line);
+        } else // 没有该文件
+        {
+            std::cout << "no txt file" << std::endl;
         }
     }
 
@@ -363,6 +327,17 @@ namespace ocr {
         double cosV = cos(rect.angle);
         double sinV = sin(rect.angle);
 
+        float *line = new float[8];
+        line[0] = (float) rect[0].x;
+        line[1] = (float) rect[0].y;
+        line[2] = (float) rect[1].x;
+        line[3] = (float) rect[1].y;
+        line[4] = (float) rect[2].x;
+        line[5] = (float) rect[2].y;
+        line[6] = (float) rect[3].x;
+        line[7] = (float) rect[3].y;
+        drawLine(line, 8);
+
         unsigned char *outData = (unsigned char *) out.data;
         int num = 0;
 
@@ -482,7 +457,7 @@ namespace ocr {
         return out;
     }
 
-    std::vector<std::string> OCR_::detect(ncnn::Mat img) {
+    void OCR_::detect(ncnn::Mat img) {
         LOGD(TAG, "detect");
         double start = ncnn::get_current_time();
         double st = start;
@@ -508,7 +483,6 @@ namespace ocr {
         const int count = pse_decode(pre, contoursMap, 0.7311, 10, 1);
 
         LOGI(TAG, "找区域时间：%.2lf", ncnn::get_current_time() - st);
-        std::vector<std::string> result;
         for (int i = 1; i <= count; ++i) {
             st = ncnn::get_current_time();
             RectD rectD = ocr::minAreaRect(contoursMap[i]);
@@ -676,12 +650,8 @@ namespace ocr {
 
             LOGI(TAG, "detect time=%.2lf", ncnn::get_current_time() - st);
             std::string content = crnn_decode(crnn_preds, alphabetChinese);
-            if (content.size() > 0) {
-                LOGI(TAG, "结果：%s", content.c_str());
-                result.push_back(content);
-            }
+            LOGI(TAG, "结果：%s", content.c_str());
         }
-        return result;
     }
 
 }

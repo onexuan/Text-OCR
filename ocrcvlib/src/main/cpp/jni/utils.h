@@ -6,8 +6,6 @@
 #define TEXT_OCR_UTILS_H
 
 #include <jni.h>
-#include <string>
-#include "mat.h"
 #include "log.h"
 
 extern JNIEnv *javaEnv;

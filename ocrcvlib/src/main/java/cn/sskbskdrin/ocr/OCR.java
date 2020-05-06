@@ -1,6 +1,5 @@
 package cn.sskbskdrin.ocr;
 
-import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -11,7 +10,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
 
 /**
  * Created by sskbskdrin on 2020/4/22.
@@ -22,63 +20,24 @@ public class OCR {
     private static final String TAG = "OCR";
 
     static {
+        System.loadLibrary("opencv_java4");
         System.loadLibrary("ocr");
     }
 
     private long obj;
     private DrawListener drawListener;
 
-    public String[] detect(String path) {
-        byte[] data = path.getBytes();
-        data = Arrays.copyOf(data, data.length + 1);
-        data[data.length - 1] = 0;
-        return nDetectPath(obj, data);
-    }
+    public native double[] test(int[] data, int length);
 
-    public String[] detect(Bitmap bitmap) {
-        return nDetectBitmap(obj, bitmap, bitmap.getWidth(), bitmap.getHeight());
-    }
-
-    private native String[] nDetectNV21(long id, byte[] data, int width, int height);
-
-    private native String[] nDetectBitmap(long id, Bitmap bitmap, int width, int height);
-
-    private native String[] nDetectPath(long id, byte[] path);
-
-    public OCR(String path) {
-        byte[] data = path.getBytes();
-        data = Arrays.copyOf(data, data.length + 1);
-        data[data.length - 1] = 0;
-        obj = nInit(data);
-    }
-
-    public OCR(AssetManager manager, String path) {
-        byte[] data = path.getBytes();
-        data = Arrays.copyOf(data, data.length + 1);
-        data[data.length - 1] = 0;
-        obj = nInitAsset(manager, data);
+    public OCR() {
+        obj = nInit();
     }
 
     public void setDrawListener(DrawListener listener) {
         drawListener = listener;
     }
 
-    private native long nInit(byte[] path);
-
-    private native long nInitAsset(AssetManager manager, byte[] path);
-
-    private native void nRelease(long id);
-
-    @Override
-    protected void finalize() throws Throwable {
-        synchronized (this) {
-            if (obj != 0) {
-                nRelease(obj);
-                obj = 0;
-            }
-        }
-        super.finalize();
-    }
+    private native long nInit();
 
     public Bitmap createBitmap(int width, int height) {
         return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);

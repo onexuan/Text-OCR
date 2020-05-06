@@ -1,14 +1,14 @@
 #include "ocr.h"
 
-#define CRNN_LSTM 0
+#define CRNN_LSTM 1
 
 std::string path = "/storage/emulated/0/ocr/pic/";
 
 void saveImage(cv::Mat mat, std::string name, int id = -1) {
     if (id < 0) {
-        cv::imwrite((path + name + ".jpg").c_str(), mat);
+//        cv::imwrite((path + name + ".jpg").c_str(), mat);
     } else {
-        cv::imwrite((path + name + std::to_string(id) + ".jpg").c_str(), mat);
+//        cv::imwrite((path + name + std::to_string(id) + ".jpg").c_str(), mat);
     }
 }
 

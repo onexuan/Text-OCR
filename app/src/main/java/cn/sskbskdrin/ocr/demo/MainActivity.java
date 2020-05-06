@@ -12,12 +12,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
+import android.provider.MediaStore;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import android.widget.ImageView;
+import android.widget.TextView;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,12 +26,14 @@ import cn.sskbskdrin.ocr.OCR;
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     public static int PERMISSION_REQ = 0x123456;
+    private static final int REQUEST_PIC = 4563;
 
     private String[] mPermission = new String[]{Manifest.permission.CAMERA,
         Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE,
         Manifest.permission.SYSTEM_ALERT_WINDOW};
 
     private List<String> mRequestPermission = new ArrayList<>();
+    private TextView contentView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,10 +41,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         setContentView(R.layout.activity_main);
         if (!getExternalCacheDir().exists()) {
             getExternalCacheDir().mkdirs();
-        }
-        File file = new File("/storage/emulated/0/ocr/pic/");
-        if (!file.exists()) {
-            file.mkdirs();
         }
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
@@ -56,25 +54,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                     PERMISSION_REQ);
             }
         }
+        contentView = findViewById(R.id.content);
         SurfaceView surfaceView = findViewById(R.id.surface_view);
         surfaceView.getHolder().addCallback(this);
 
-        ocr = new OCR();
-        ocr.setDrawListener(new OCR.DrawListener() {
-            @Override
-            public void draw(final OCR.Action action) {
-                actions.add(action);
-                drawHandler.post(drawRunnable);
-            }
-        });
     }
 
     private void drawSurface(Canvas canvas) {
         canvas.drawColor(Color.WHITE);
-        if (bitmap == null) {
-            bitmap = BitmapFactory.decodeFile("/storage/emulated/0/ocr/pic/test.jpg");
+        if (bitmap != null) {
+            canvas.drawBitmap(bitmap, 0, 0, null);
         }
-        canvas.drawBitmap(bitmap, 0, 0, null);
 
         for (OCR.Action action : actions) {
             action.draw(canvas);
@@ -91,8 +81,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private Runnable drawRunnable = new Runnable() {
         @Override
         public void run() {
-            //            drawHandler.removeCallbacks(this);
-            //            drawHandler.postDelayed(this, 30);
             if (holder != null) {
                 Canvas canvas = holder.lockCanvas();
                 drawSurface(canvas);
@@ -102,14 +90,19 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     };
 
     @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        this.holder = holder;
+    protected void onStart() {
+        super.onStart();
         if (drawThread != null) {
             drawThread.quit();
         }
         drawThread = new HandlerThread("drawThread");
         drawThread.start();
         drawHandler = new Handler(drawThread.getLooper());
+    }
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        this.holder = holder;
     }
 
     @Override
@@ -120,6 +113,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         this.holder = null;
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
         if (drawHandler != null) {
             drawHandler.removeCallbacksAndMessages(null);
         }
@@ -131,26 +129,33 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     public void onClick(View view) {
-        switch (view.getId()) {
-            case R.id.detect:
-                //                startActivityForResult(new Intent(this, FaceDetectorActivity.class), 1001);
-                drawHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        ocr.test(new int[0], 0);
-                    }
-                });
-                break;
-            case R.id.recognizer:
-                break;
+        getLocalPicture();
+        if (ocr == null) {
+            drawHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    ocr = new OCR("/storage/emulated/0/ocr/");
+                    ocr.setDrawListener(new OCR.DrawListener() {
+                        @Override
+                        public void draw(final OCR.Action action) {
+                            actions.add(action);
+                            drawHandler.post(drawRunnable);
+                        }
+                    });
+                }
+            });
         }
+    }
+
+    private void getLocalPicture() {
+        Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_GET_CONTENT);
+        intent.setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*");
+        startActivityForResult(intent, REQUEST_PIC);
     }
 
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         // 版本兼容
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
-            return;
-        }
         if (requestCode == PERMISSION_REQ) {
             for (int i = 0; i < grantResults.length; i++) {
                 for (String one : mPermission) {
@@ -164,9 +169,30 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (resultCode == RESULT_OK) {
-            Bitmap map = BitmapFactory.decodeFile(getCacheDir() + "/" + "face.jpg");
-            ((ImageView) findViewById(R.id.image)).setImageBitmap(map);
+        if (resultCode == RESULT_OK && requestCode == REQUEST_PIC) {
+            String filePath = FileUtils.getRealFilePath(this, data.getData());
+            if (filePath == null) {
+                filePath = FileUtils.getImagePathFromURI(this, data.getData());
+            }
+            bitmap = BitmapFactory.decodeFile(filePath);
+            final String path = filePath;
+            drawHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    String[] ret = ocr.detect(BitmapFactory.decodeFile(path));
+                    StringBuilder builder = new StringBuilder();
+                    for (String s : ret) {
+                        builder.append(s).append('\n');
+                    }
+                    final String text = builder.toString();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            contentView.setText(text);
+                        }
+                    });
+                }
+            });
         }
     }
 }
