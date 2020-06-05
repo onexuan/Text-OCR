@@ -1,6 +1,6 @@
 #include "convexHull.h"
 #include "utils.h"
-#include "ocr_.h"
+#include "ocr.h"
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 
@@ -14,7 +14,7 @@ Java_cn_sskbskdrin_ocr_OCR_nInit(JNIEnv *env, jobject obj, jbyteArray array) {
     javaObject = obj;
     LOGD(TAG, "ocr init");
     char *path = (char *) env->GetByteArrayElements(array, NULL);
-    ocr::OCR_ *engine = new ocr::OCR_(path);
+    ocr::OCR *engine = new ocr::OCR(path);
     env->ReleaseByteArrayElements(array, (jbyte *) path, 0);
     return (jlong) engine;
 }
@@ -27,17 +27,17 @@ Java_cn_sskbskdrin_ocr_OCR_nInitAsset(JNIEnv *env, jobject obj, jobject manager,
     LOGD(TAG, "ocr init");
     char *path = (char *) env->GetByteArrayElements(array, NULL);
     AAssetManager *mgr = AAssetManager_fromJava(env, manager);
-    ocr::OCR_ *engine = new ocr::OCR_(mgr, path);
+    ocr::OCR *engine = new ocr::OCR(mgr, path);
     env->ReleaseByteArrayElements(array, (jbyte *) path, 0);
     return (jlong) engine;
 }
 
 jobjectArray detect(JNIEnv *env, jlong id, ncnn::Mat &src) {
     double start = ncnn::get_current_time();
-    ocr::OCR_ *ocr = (ocr::OCR_ *) id;
+    ocr::OCR *ocr = (ocr::OCR *) id;
     LOGD("main", "start ocr");
     std::vector<std::string> result = ocr->detect(src);
-    LOGD("main", "end ocr time%.lf", ncnn::get_current_time() - start);
+    LOGD("main", "end ocr time=%.lf", ncnn::get_current_time() - start);
     jclass clazz = env->FindClass("java/lang/String");
     jobjectArray ret = env->NewObjectArray((jsize) result.size(), clazz, 0);
     for (int i = 0; i < result.size(); ++i) {
@@ -96,6 +96,6 @@ Java_cn_sskbskdrin_ocr_OCR_nDetectPath(JNIEnv *env, jobject obj, jlong id, jbyte
 extern "C"
 JNIEXPORT void JNICALL
 Java_cn_sskbskdrin_ocr_OCR_nRelease(JNIEnv *env, jobject thiz, jlong id) {
-    ocr::OCR_ *engine = (ocr::OCR_ *) id;
+    ocr::OCR *engine = (ocr::OCR *) id;
     free(engine);
 }

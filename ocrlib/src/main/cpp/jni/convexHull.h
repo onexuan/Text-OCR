@@ -11,5 +11,7 @@
 namespace ocr {
     template<typename T>
     void convexHull(std::vector<Point_<T>> &points, std::vector<Point_<T>> &out, bool clockwise);
+
+    RectD minAreaRect(std::vector<Point> &_points);
 }
 #endif //TEXT_OCR_CONVEXHULL_H
